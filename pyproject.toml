@@ -19,7 +19,10 @@ dependencies = [
 # silently UNINSTALL pytest. pytest is also not part of the published package,
 # which is exactly what dependency-groups are for.
 [dependency-groups]
-dev = ["pytest>=8.0"]
+# anthropic is here, NOT in [project.dependencies], because only the one-off
+# scripts/demo_discrimination_real.py uses it. The shipped library never
+# imports a provider SDK — that is the whole point of the injected scorer.
+dev = ["pytest>=8.0", "anthropic>=0.69"]
 
 [project.scripts]
 evalcheck = "evalcheck.cli:main"
