@@ -53,6 +53,17 @@ JUDGE_MODEL = "claude-sonnet-5"
 EVAL_SET = Path(__file__).resolve().parents[1] / "examples" / "sample_evalset.jsonl"
 CACHE_PATH = Path(__file__).resolve().parent / ".response_cache.json"
 
+# Without an explicit timeout the SDK default is 10 minutes, so one stalled
+# connection parks the whole run with no output — it looks like a hang, not a
+# failure. These two bound it instead.
+#
+# The SDK retries timeouts, so worst case per call is
+# REQUEST_TIMEOUT_S x (MAX_RETRIES + 1) = 90s, not 30s. Bounded either way.
+# If legitimate calls start timing out (a long thinking trace on a hard case),
+# raise the timeout rather than the retry count.
+REQUEST_TIMEOUT_S = 30.0
+MAX_RETRIES = 2
+
 # List prices per million tokens (input, output), for the run-cost estimate
 # only. Sonnet 5 has lower introductory pricing at the time of writing; using
 # the standard rate overestimates, which is the safe direction for a budget.
@@ -62,10 +73,55 @@ PRICING = {
     "claude-haiku-4-5": (1.00, 5.00),
 }
 
-ANSWER_SYSTEM = (
-    "You are a customer support agent. Answer the customer's message directly "
-    "and concisely. Do not ask clarifying questions."
+# Two scorer prompts, run as an A/B.
+#
+# The original prompt granted a persona and nothing else, so a model that
+# correctly refused to invent account access or policy timing was graded WRONG
+# for it — the harness rewarded confident fabrication over calibrated
+# uncertainty. Both variants below fix that by granting the authority the
+# reference answers assume.
+#
+# They are split because the POLICY variant contains text that is close to
+# verbatim reference answers (billing_005 expects "applies at the next renewal
+# and is prorated"; billing_007 expects the 5-7 day pending-authorization
+# line). A case passing under POLICY is therefore weak evidence — the model may
+# only be repeating the prompt. AUTHORITY leaks no reference text, so it is the
+# clean test of "did the agent simply lack authority?". Run both and compare.
+_PERSONA = (
+    "You are a customer support agent for a SaaS product. Answer the "
+    "customer's message directly and concisely. Do not ask clarifying "
+    "questions."
 )
+
+_AUTHORITY = (
+    "You have full access to this customer's account: their billing history, "
+    "individual charges, subscription status, and payment methods. You can "
+    "see the specific transactions they are asking about. You are authorized "
+    "to issue refunds yourself, without escalating."
+)
+
+_POLICY = (
+    "Billing policy:\n"
+    "- Plan and billing-cycle changes take effect at the next renewal and are "
+    "prorated against the unused portion of the current period.\n"
+    "- A confirmed duplicate charge is refunded in full; refunds reach the "
+    "original payment method in 5-10 business days.\n"
+    "- A pending authorization is not a completed charge. It often appears "
+    "alongside the real charge and drops off the statement within 5-7 days."
+)
+
+_ACT = (
+    "Act on the account rather than telling the customer to go check it "
+    "themselves, and say what you have done."
+)
+
+ANSWER_SYSTEM_AUTHORITY = "\n\n".join([_PERSONA, _AUTHORITY, _ACT])
+ANSWER_SYSTEM_POLICY = "\n\n".join([_PERSONA, _AUTHORITY, _POLICY, _ACT])
+
+VARIANTS = {
+    "authority": ANSWER_SYSTEM_AUTHORITY,
+    "policy": ANSWER_SYSTEM_POLICY,
+}
 
 JUDGE_SYSTEM = "You are a strict, consistent grader."
 
@@ -204,12 +260,23 @@ def request_kwargs(model: str) -> dict[str, Any]:
 def call_model(
     client: anthropic.Anthropic, model: str, system: str, prompt: str
 ) -> dict[str, Any]:
-    response = client.messages.create(
-        model=model,
-        system=system,
-        messages=[{"role": "user", "content": prompt}],
-        **request_kwargs(model),
-    )
+    try:
+        response = client.messages.create(
+            model=model,
+            system=system,
+            messages=[{"role": "user", "content": prompt}],
+            **request_kwargs(model),
+        )
+    except anthropic.APITimeoutError as exc:
+        # Already retried MAX_RETRIES times by the SDK before landing here.
+        raise RuntimeError(
+            f"{model} timed out after {MAX_RETRIES + 1} attempts of "
+            f"{REQUEST_TIMEOUT_S:.0f}s"
+        ) from exc
+    except anthropic.APIConnectionError as exc:
+        raise RuntimeError(f"{model} could not be reached: {exc}") from exc
+    except anthropic.RateLimitError as exc:
+        raise RuntimeError(f"{model} rate limited after retries: {exc}") from exc
 
     # Check stop_reason before touching content: a refusal returns HTTP 200
     # with an empty content list, so indexing straight into content[0] would
@@ -233,11 +300,17 @@ def call_model(
     }
 
 
-def build_scorer(client: anthropic.Anthropic, cache: ResponseCache):
+def build_scorer(
+    client: anthropic.Anthropic, cache: ResponseCache, answer_system: str
+):
     """Return the `score(case, model) -> bool` the check consumes.
 
     This closure is the entire integration surface. evalcheck calls it once per
     case per model and interprets only the bool it returns.
+
+    ``answer_system`` is passed in rather than read from a module global so the
+    value that goes into the cache key is provably the value that goes to the
+    API — the two cannot drift apart.
     """
 
     def score(case, model: str) -> bool:
@@ -247,8 +320,8 @@ def build_scorer(client: anthropic.Anthropic, cache: ResponseCache):
             )
 
         answer = cache.get_or_call(
-            answer_key(model, ANSWER_SYSTEM, case.input),
-            lambda: call_model(client, model, ANSWER_SYSTEM, case.input),
+            answer_key(model, answer_system, case.input),
+            lambda: call_model(client, model, answer_system, case.input),
         )
 
         prompt = judge_prompt_for(case, answer["text"])
@@ -269,7 +342,7 @@ def _block(label: str, text: str) -> None:
     print()
 
 
-def show_cases(case_ids: list[str]) -> int:
+def show_cases(case_ids: list[str], answer_system: str) -> int:
     """Print the full paper trail for named cases. Reads only; never calls out.
 
     This is the audit surface for the check's own verdicts: a case recorded as
@@ -301,7 +374,7 @@ def show_cases(case_ids: list[str]) -> int:
         _block("EXPECTED (reference answer)", str(case.expected))
 
         for label, model in (("weak", WEAK_MODEL), ("strong", STRONG_MODEL)):
-            answer = data.get(cache_key(answer_key(model, ANSWER_SYSTEM, case.input)))
+            answer = data.get(cache_key(answer_key(model, answer_system, case.input)))
             if answer is None:
                 print(
                     f"  --- {model} ({label}) --- not in cache "
@@ -342,23 +415,35 @@ def main(argv: list[str] | None = None) -> int:
         help="Print the cached answers and judge verdicts for these cases and "
         "exit. Reads the cache only — makes no API calls and needs no API key.",
     )
+    parser.add_argument(
+        "--variant",
+        choices=sorted(VARIANTS),
+        default="policy",
+        help="Which scorer system prompt to use. 'authority' grants account "
+        "access and refund authority only; 'policy' adds billing policy facts "
+        "(some of which are close to reference answers). Default: policy.",
+    )
     args = parser.parse_args(argv)
+    answer_system = VARIANTS[args.variant]
 
     if args.show:
         # Return before the client is constructed, so --show cannot spend money
         # even by accident.
-        return show_cases(args.show)
+        return show_cases(args.show, answer_system)
 
     if not os.environ.get("ANTHROPIC_API_KEY"):
         print("ANTHROPIC_API_KEY is not set. Export it and re-run.", file=sys.stderr)
         return 1
 
     eval_set = load(EVAL_SET)
-    client = anthropic.Anthropic()
+    client = anthropic.Anthropic(
+        timeout=REQUEST_TIMEOUT_S, max_retries=MAX_RETRIES
+    )
     cache = ResponseCache(CACHE_PATH)
 
     planned = len(eval_set) * 2 * 2  # 2 models, each answer graded once
     print(f"eval set   : {eval_set.source} ({len(eval_set)} cases)")
+    print(f"variant    : {args.variant} ({len(answer_system)} chars of system prompt)")
     print(f"weak model : {WEAK_MODEL}")
     print(f"strong     : {STRONG_MODEL}")
     print(f"judge      : {JUDGE_MODEL}")
@@ -366,15 +451,26 @@ def main(argv: list[str] | None = None) -> int:
     print(f"up to {planned} API calls, minus whatever the cache already holds\n")
 
     check = DiscriminationCheck(
-        build_scorer(client, cache), [WEAK_MODEL, STRONG_MODEL]
+        build_scorer(client, cache, answer_system), [WEAK_MODEL, STRONG_MODEL]
     )
 
     try:
         result = check.run(eval_set)
     except ScorerError as exc:
-        # The cache is write-through, so everything paid for before the failure
-        # is already on disk and a re-run resumes rather than restarts.
+        # A failed call aborts the run rather than being scored as a FAIL, and
+        # that is deliberate: `score` must return a bool, so "continuing" past
+        # a timeout would mean inventing a verdict. A fabricated FAIL would
+        # land in n_floor or n_inverted and be indistinguishable from a real
+        # one — a silent lie in the exact tool built to catch silent lies.
+        #
+        # Resumability comes from the cache instead: every response already
+        # paid for is on disk, so re-running the same command picks up where
+        # this left off and only pays for what is missing.
         print(f"\nscoring failed: {exc}", file=sys.stderr)
+        print(
+            "re-run the same command to resume — cached responses are kept.",
+            file=sys.stderr,
+        )
         report_cost(cache)
         return 1
 
