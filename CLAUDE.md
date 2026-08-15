@@ -18,7 +18,8 @@ architecture, STOP and ask me first. Over-engineering is the main failure mode h
 
 ## Tech
 - Python 3.12+, managed with uv. `uv pip install`, never bare pip.
-- numpy, pandas, sentence-transformers (local embeddings), pytest, click, rich.
+- numpy, sentence-transformers (local embeddings), pytest, click, rich.
+  (pandas was dropped: declared but never imported.)
 - No Node, no JS, no database, no server.
 
 ## Workflow

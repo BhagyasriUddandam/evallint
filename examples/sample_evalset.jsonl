@@ -1,0 +1,20 @@
+{"id": "billing_001", "input": "I was charged twice for my subscription this month.", "expected": "Confirm the duplicate charge and refund the extra amount.", "label": "billing"}
+{"id": "billing_002", "input": "My subscription got billed two times this month.", "expected": "Confirm the duplicate charge and refund the extra amount.", "label": "billing"}
+{"id": "billing_003", "input": "Why did you charge me twice for my monthly subscription?", "expected": "Confirm the duplicate charge and refund the extra amount.", "label": "billing"}
+{"id": "billing_004", "input": "How do I update the credit card on my account?", "expected": "Point the user to Settings > Billing > Payment method.", "label": "billing"}
+{"id": "billing_005", "input": "Can I switch from monthly billing to annual billing?", "expected": "Yes: the change applies at the next renewal and is prorated.", "label": "billing"}
+{"id": "billing_006", "input": "Where can I download last month's invoice?", "expected": "Invoices are under Settings > Billing > Invoice history.", "label": "billing"}
+{"id": "billing_007", "input": "My payment failed but the money left my bank account.", "expected": "Explain the pending authorization and that it drops off in 5-7 days.", "label": "billing"}
+{"id": "billing_008", "input": "Do you charge sales tax for orders shipped to Ohio?", "expected": "Yes, Ohio sales tax is applied at checkout.", "label": "billing"}
+{"id": "billing_009", "input": "I want to cancel my plan before the next billing date.", "expected": "Explain how to cancel and confirm no charge after the current period.", "label": "billing"}
+{"id": "billing_010", "input": "The price on my invoice doesn't match the price on your pricing page.", "expected": "Explain that the invoice reflects the plan price locked in at signup.", "label": "billing"}
+{"id": "billing_011", "input": "Can I get a receipt with my company's VAT number on it?", "expected": "Yes: add the VAT number under Billing details and regenerate the receipt.", "label": "billing"}
+{"id": "billing_012", "input": "I was billed after I already cancelled my account.", "expected": "Verify the cancellation date and refund any charge made after it.", "label": "billing"}
+{"id": "billing_013", "input": "Why is my invoice higher than last month?", "expected": "Explain seat changes and proration as the usual causes.", "label": "billing"}
+{"id": "billing_014", "input": "How do I update the credit card on my account?", "expected": "Point the user to Settings > Billing > Payment method.", "label": "billing"}
+{"id": "password_001", "input": "I forgot my password and can't log in.", "expected": "Send a reset link and confirm the address on file.", "label": "password_reset"}
+{"id": "password_002", "input": "I can't log in because I forgot my password.", "expected": "Send a reset link and confirm the address on file.", "label": "password_reset"}
+{"id": "password_003", "input": "The password reset email never arrived in my inbox.", "expected": "Ask them to check spam, then resend from the admin console.", "label": "password_reset"}
+{"id": "password_004", "input": "My account is locked after too many failed login attempts.", "expected": "Explain the 30-minute lockout and offer to unlock the account.", "label": "password_reset"}
+{"id": "refund_001", "input": "I'd like a refund for the annual plan I bought yesterday.", "expected": "Approve the refund: it is inside the 14-day window.", "label": "refund"}
+{"id": "bug_001", "input": "The export button on the dashboard does nothing when I click it.", "expected": "Collect browser and console details, then file a bug report.", "label": "bug_report"}

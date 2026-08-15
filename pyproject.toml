@@ -1,0 +1,35 @@
+[project]
+name = "evalcheck"
+version = "0.1.0"
+description = "Audits LLM eval datasets for the flaws that make evaluations silently lie."
+requires-python = ">=3.12"
+# Lower bounds here, exact versions in uv.lock. The lockfile is what makes an
+# environment reproducible (`uv sync`); pinning transitive deps in this list
+# instead would make evalcheck refuse to co-install alongside anything else.
+dependencies = [
+    "numpy>=2.0",
+    "sentence-transformers>=3.0",
+    "click>=8.1",
+    "rich>=13.7",
+]
+
+# A dependency-group, not an optional-dependency extra. uv installs default
+# groups on a plain `uv sync`, so `uv sync && uv run pytest` works on a fresh
+# clone. As an extra it needed `uv sync --extra dev`, and plain `uv sync` would
+# silently UNINSTALL pytest. pytest is also not part of the published package,
+# which is exactly what dependency-groups are for.
+[dependency-groups]
+dev = ["pytest>=8.0"]
+
+[project.scripts]
+evalcheck = "evalcheck.cli:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/evalcheck"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
