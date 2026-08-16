@@ -64,6 +64,32 @@ CACHE_PATH = Path(__file__).resolve().parent / ".response_cache.json"
 REQUEST_TIMEOUT_S = 30.0
 MAX_RETRIES = 2
 
+# Sampling parameters (temperature / top_p / top_k) were REMOVED from the
+# Claude 5 family and from Opus 4.7/4.8 — sending temperature at all returns a
+# 400 on Opus 5, and any non-default value returns a 400 on Sonnet 5. They
+# remain available on Opus 4.6 / Sonnet 4.6 and the 4.5-generation models.
+#
+# So temperature=0 is NOT a knob that exists across the current model trio.
+# This deny-list makes that a loud, immediate error instead of a 400 forty
+# calls into a paid run.
+_NO_SAMPLING_PREFIXES = (
+    "claude-opus-5",
+    "claude-sonnet-5",
+    "claude-fable-5",
+    "claude-mythos-5",
+    "claude-opus-4-8",
+    "claude-opus-4-7",
+)
+
+
+def supports_temperature(model: str) -> bool:
+    """Whether this model accepts a `temperature` request parameter."""
+    return not model.startswith(_NO_SAMPLING_PREFIXES)
+
+
+class UnsupportedSamplingError(RuntimeError):
+    """A temperature was requested for a model that rejects the parameter."""
+
 # List prices per million tokens (input, output), for the run-cost estimate
 # only. Sonnet 5 has lower introductory pricing at the time of writing; using
 # the standard rate overestimates, which is the safe direction for a budget.
@@ -156,7 +182,13 @@ def cache_key(key_parts: dict[str, Any]) -> str:
     ).hexdigest()
 
 
-def answer_key(model: str, system: str, case_input: str) -> dict[str, Any]:
+def answer_key(
+    model: str,
+    system: str,
+    case_input: str,
+    temperature: float | None,
+    repeat: int = 1,
+) -> dict[str, Any]:
     """Identity of a generated answer.
 
     EVERY input that can change the response belongs here. The system prompt
@@ -169,11 +201,35 @@ def answer_key(model: str, system: str, case_input: str) -> dict[str, Any]:
     byte-identical inputs share one cached answer. On the bundled example that
     saves two calls, because billing_004 and billing_014 are the planted exact
     duplicate.
+
+    ``temperature`` is in the key for the same reason the system prompt is:
+    changing it changes the response distribution, so a cached answer sampled
+    at a different temperature is a stale answer to a different question.
+    ``None`` (parameter not sent) is a distinct value from 0.0.
+
+    ``repeat`` is the one key field that is NOT a request parameter. It exists
+    precisely so identical requests do NOT collide: sampling noise can only be
+    measured by asking the same question more than once, and a cache that
+    deduplicated those would return the first answer three times and report
+    perfect stability no matter what the models did.
     """
-    return {"kind": "answer", "model": model, "system": system, "input": case_input}
+    return {
+        "kind": "answer",
+        "model": model,
+        "system": system,
+        "input": case_input,
+        "temperature": temperature,
+        "repeat": repeat,
+    }
 
 
-def judge_key(case_id: str, system: str, prompt: str) -> dict[str, Any]:
+def judge_key(
+    case_id: str,
+    system: str,
+    prompt: str,
+    temperature: float | None,
+    repeat: int = 1,
+) -> dict[str, Any]:
     """Identity of a grading verdict.
 
     Keyed on the fully rendered judge prompt, not just the answer text. The
@@ -192,6 +248,8 @@ def judge_key(case_id: str, system: str, prompt: str) -> dict[str, Any]:
         "case": case_id,
         "system": system,
         "prompt": prompt,
+        "temperature": temperature,
+        "repeat": repeat,
     }
 
 
@@ -242,30 +300,51 @@ class ResponseCache:
         return record
 
 
-def request_kwargs(model: str) -> dict[str, Any]:
+def request_kwargs(model: str, temperature: float | None = None) -> dict[str, Any]:
     """Per-model request parameters. The knobs are not the same on every model.
 
-    Two real differences, each of which would be a runtime error or silent cost
-    if ignored:
+    Three real differences, each of which would be a runtime error or silent
+    cost if ignored:
       - `output_config.effort` is rejected by Haiku 4.5.
       - On the Claude 5 models thinking is ON when the field is omitted, and
         max_tokens caps thinking PLUS the answer. A max_tokens sized for the
         answer alone would truncate the response mid-sentence.
+      - `temperature` is rejected outright by the Claude 5 family and Opus
+        4.7/4.8. Rather than let that surface as a 400 partway through a paid
+        run, refuse before the first call.
     """
     if model.startswith("claude-haiku"):
-        return {"max_tokens": 1000}
-    return {"max_tokens": 4000, "output_config": {"effort": "low"}}
+        kwargs: dict[str, Any] = {"max_tokens": 1000}
+    else:
+        kwargs = {"max_tokens": 4000, "output_config": {"effort": "low"}}
+
+    if temperature is not None:
+        if not supports_temperature(model):
+            raise UnsupportedSamplingError(
+                f"{model} does not accept a temperature parameter (the Claude 5 "
+                f"family and Opus 4.7/4.8 removed sampling parameters; sending "
+                f"one returns HTTP 400). Either drop --temperature, or switch "
+                f"to models that still accept it (e.g. claude-opus-4-6, "
+                f"claude-sonnet-4-6, claude-haiku-4-5)."
+            )
+        kwargs["temperature"] = temperature
+
+    return kwargs
 
 
 def call_model(
-    client: anthropic.Anthropic, model: str, system: str, prompt: str
+    client: anthropic.Anthropic,
+    model: str,
+    system: str,
+    prompt: str,
+    temperature: float | None = None,
 ) -> dict[str, Any]:
     try:
         response = client.messages.create(
             model=model,
             system=system,
             messages=[{"role": "user", "content": prompt}],
-            **request_kwargs(model),
+            **request_kwargs(model, temperature),
         )
     except anthropic.APITimeoutError as exc:
         # Already retried MAX_RETRIES times by the SDK before landing here.
@@ -301,7 +380,11 @@ def call_model(
 
 
 def build_scorer(
-    client: anthropic.Anthropic, cache: ResponseCache, answer_system: str
+    client: anthropic.Anthropic,
+    cache: ResponseCache,
+    answer_system: str,
+    temperature: float | None = None,
+    repeat: int = 1,
 ):
     """Return the `score(case, model) -> bool` the check consumes.
 
@@ -320,19 +403,114 @@ def build_scorer(
             )
 
         answer = cache.get_or_call(
-            answer_key(model, answer_system, case.input),
-            lambda: call_model(client, model, answer_system, case.input),
+            answer_key(model, answer_system, case.input, temperature, repeat),
+            lambda: call_model(
+                client, model, answer_system, case.input, temperature
+            ),
         )
 
         prompt = judge_prompt_for(case, answer["text"])
         verdict = cache.get_or_call(
-            judge_key(case.id, JUDGE_SYSTEM, prompt),
-            lambda: call_model(client, JUDGE_MODEL, JUDGE_SYSTEM, prompt),
+            judge_key(case.id, JUDGE_SYSTEM, prompt, temperature, repeat),
+            lambda: call_model(
+                client, JUDGE_MODEL, JUDGE_SYSTEM, prompt, temperature
+            ),
         )
 
         return verdict["text"].strip().upper().startswith("PASS")
 
     return score
+
+
+def cached_verdict(
+    data: dict[str, Any],
+    case,
+    model: str,
+    answer_system: str,
+    temperature: float | None,
+    repeat: int,
+) -> bool | None:
+    """The stored PASS/FAIL for one (case, model, repeat), or None if absent."""
+    answer = data.get(
+        cache_key(answer_key(model, answer_system, case.input, temperature, repeat))
+    )
+    if answer is None:
+        return None
+    prompt = judge_prompt_for(case, answer["text"])
+    verdict = data.get(
+        cache_key(judge_key(case.id, JUDGE_SYSTEM, prompt, temperature, repeat))
+    )
+    if verdict is None:
+        return None
+    return verdict["text"].strip().upper().startswith("PASS")
+
+
+def report_stability(
+    answer_system: str, temperature: float | None, repeats: int
+) -> int:
+    """Compare verdicts for the same cases across repeated runs.
+
+    This is the substitute for temperature=0, which the Claude 5 models do not
+    accept. Rather than assume sampling noise away, measure it: a case whose
+    verdict is identical across every repeat is signal, and one that flips is
+    noise. An inversion that appears in 1 of 3 runs is not a finding.
+    """
+    if not CACHE_PATH.is_file():
+        print(f"no cache at {CACHE_PATH}", file=sys.stderr)
+        return 1
+
+    data = json.loads(CACHE_PATH.read_text(encoding="utf-8"))
+    cases = list(load(EVAL_SET))
+
+    print(f"reading {len(data)} cached responses — no API calls will be made")
+    print(f"repeats: 1..{repeats}   P=pass F=fail .=missing\n")
+    print(f"{'case':<16}{'weak':<10}{'strong':<10}{'inverted':<12}status")
+    print("-" * 62)
+
+    unstable: list[str] = []
+    stable_inverted: list[str] = []
+    incomplete = 0
+
+    for case in cases:
+        cols = {}
+        for model in (WEAK_MODEL, STRONG_MODEL):
+            marks = []
+            for r in range(1, repeats + 1):
+                v = cached_verdict(data, case, model, answer_system, temperature, r)
+                marks.append("." if v is None else ("P" if v else "F"))
+            cols[model] = "".join(marks)
+
+        weak, strong = cols[WEAK_MODEL], cols[STRONG_MODEL]
+        if "." in weak + strong:
+            incomplete += 1
+            status = "incomplete"
+            inv = "-"
+        else:
+            # Inverted per repeat: weak passed where strong failed.
+            per_repeat = [
+                w == "P" and s == "F" for w, s in zip(weak, strong, strict=True)
+            ]
+            inv = f"{sum(per_repeat)}/{repeats}"
+            if len(set(weak)) > 1 or len(set(strong)) > 1:
+                status = "UNSTABLE"
+                unstable.append(case.id)
+            else:
+                status = "stable"
+                if per_repeat[0]:
+                    stable_inverted.append(case.id)
+
+        print(f"{case.id:<16}{weak:<10}{strong:<10}{inv:<12}{status}")
+
+    print("-" * 62)
+    if incomplete:
+        print(f"{incomplete} case(s) incomplete — run all {repeats} repeats first")
+    print(f"unstable across repeats : {unstable or 'none'}")
+    print(f"inverted in EVERY repeat: {stable_inverted or 'none'}")
+    print(
+        "\nOnly cases inverted in every repeat are evidence. A case that "
+        "inverts in some runs and not others is sampling noise, not a finding."
+    )
+    return 0
 
 
 def _block(label: str, text: str) -> None:
@@ -342,7 +520,9 @@ def _block(label: str, text: str) -> None:
     print()
 
 
-def show_cases(case_ids: list[str], answer_system: str) -> int:
+def show_cases(
+    case_ids: list[str], answer_system: str, temperature: float | None = None
+) -> int:
     """Print the full paper trail for named cases. Reads only; never calls out.
 
     This is the audit surface for the check's own verdicts: a case recorded as
@@ -374,7 +554,9 @@ def show_cases(case_ids: list[str], answer_system: str) -> int:
         _block("EXPECTED (reference answer)", str(case.expected))
 
         for label, model in (("weak", WEAK_MODEL), ("strong", STRONG_MODEL)):
-            answer = data.get(cache_key(answer_key(model, answer_system, case.input)))
+            answer = data.get(
+                cache_key(answer_key(model, answer_system, case.input, temperature))
+            )
             if answer is None:
                 print(
                     f"  --- {model} ({label}) --- not in cache "
@@ -383,7 +565,9 @@ def show_cases(case_ids: list[str], answer_system: str) -> int:
                 continue
 
             prompt = judge_prompt_for(case, answer["text"])
-            verdict = data.get(cache_key(judge_key(case_id, JUDGE_SYSTEM, prompt)))
+            verdict = data.get(
+                cache_key(judge_key(case_id, JUDGE_SYSTEM, prompt, temperature))
+            )
             if verdict is None:
                 ruling = "NO VERDICT IN CACHE"
             else:
@@ -423,13 +607,50 @@ def main(argv: list[str] | None = None) -> int:
         "access and refund authority only; 'policy' adds billing policy facts "
         "(some of which are close to reference answers). Default: policy.",
     )
+    parser.add_argument(
+        "--temperature",
+        type=float,
+        default=None,
+        help="Sampling temperature for BOTH the scored models and the judge. "
+        "Omitted by default, because the Claude 5 family and Opus 4.7/4.8 "
+        "reject the parameter outright (HTTP 400) — only 4.6-generation and "
+        "older models accept it. Passing it here with the default model trio "
+        "will fail fast with an explanation rather than mid-run.",
+    )
+    parser.add_argument(
+        "--repeat",
+        type=int,
+        default=1,
+        metavar="N",
+        help="Which repeat of this configuration to run (default 1). Part of "
+        "the cache key, so repeats do not collide. Run 1, 2, 3 to sample the "
+        "same configuration three times.",
+    )
+    parser.add_argument(
+        "--stability",
+        action="store_true",
+        help="Report per-case verdict stability across repeats 1..--repeat "
+        "and exit. Reads the cache only — no API calls, no key needed.",
+    )
     args = parser.parse_args(argv)
     answer_system = VARIANTS[args.variant]
+
+    if args.stability:
+        return report_stability(answer_system, args.temperature, args.repeat)
 
     if args.show:
         # Return before the client is constructed, so --show cannot spend money
         # even by accident.
-        return show_cases(args.show, answer_system)
+        return show_cases(args.show, answer_system, args.temperature)
+
+    # Fail before the first paid call if temperature was asked for on a model
+    # that rejects it, rather than 400-ing partway through the run.
+    try:
+        for model in (WEAK_MODEL, STRONG_MODEL, JUDGE_MODEL):
+            request_kwargs(model, args.temperature)
+    except UnsupportedSamplingError as exc:
+        print(f"{exc}\n\nNo API calls were made.", file=sys.stderr)
+        return 1
 
     if not os.environ.get("ANTHROPIC_API_KEY"):
         print("ANTHROPIC_API_KEY is not set. Export it and re-run.", file=sys.stderr)
@@ -444,6 +665,15 @@ def main(argv: list[str] | None = None) -> int:
     planned = len(eval_set) * 2 * 2  # 2 models, each answer graded once
     print(f"eval set   : {eval_set.source} ({len(eval_set)} cases)")
     print(f"variant    : {args.variant} ({len(answer_system)} chars of system prompt)")
+    print(f"repeat     : {args.repeat}")
+    print(
+        "temperature: "
+        + (
+            "not sent (model default)"
+            if args.temperature is None
+            else f"{args.temperature} (all three models)"
+        )
+    )
     print(f"weak model : {WEAK_MODEL}")
     print(f"strong     : {STRONG_MODEL}")
     print(f"judge      : {JUDGE_MODEL}")
@@ -451,7 +681,8 @@ def main(argv: list[str] | None = None) -> int:
     print(f"up to {planned} API calls, minus whatever the cache already holds\n")
 
     check = DiscriminationCheck(
-        build_scorer(client, cache, answer_system), [WEAK_MODEL, STRONG_MODEL]
+        build_scorer(client, cache, answer_system, args.temperature, args.repeat),
+        [WEAK_MODEL, STRONG_MODEL],
     )
 
     try:
