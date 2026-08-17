@@ -35,8 +35,13 @@ from typing import Any
 
 import anthropic
 
-from evalcheck.checks import DiscriminationCheck, ScorerError
-from evalcheck.io import load
+# scripts/ is not a package, so make sibling modules importable whether this
+# file is run directly or loaded by path from a test.
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+from _cache import ResponseCache, cache_key  # noqa: E402
+from evalcheck.checks import DiscriminationCheck, ScorerError  # noqa: E402
+from evalcheck.io import load  # noqa: E402
 
 # Ordered WEAKEST FIRST — the check uses that ordering to detect inversions,
 # so getting it backwards would invert the finding rather than raise.
@@ -167,21 +172,6 @@ Ignore differences in tone, length, politeness, and phrasing — grade only
 whether the substance matches. Reply with exactly one word: PASS or FAIL."""
 
 
-def cache_key(key_parts: dict[str, Any]) -> str:
-    """Hash a request identity into a cache key.
-
-    One function, used by both the write path and --show. If the two built
-    keys separately they could drift, and --show would silently report
-    "not in cache" for entries that are sitting right there.
-
-    sort_keys so an identical request always hashes identically; without it,
-    dict ordering could produce a cache miss and a charge.
-    """
-    return hashlib.sha256(
-        json.dumps(key_parts, sort_keys=True).encode("utf-8")
-    ).hexdigest()
-
-
 def answer_key(
     model: str,
     system: str,
@@ -259,45 +249,6 @@ def judge_prompt_for(case, answer_text: str) -> str:
     return JUDGE_TEMPLATE.format(
         question=case.input, expected=case.expected, answer=answer_text
     )
-
-
-class ResponseCache:
-    """A write-through JSON cache so a re-run never re-pays for a response.
-
-    Written to disk on every miss rather than once at the end: an exception on
-    case 15 of 20 must not throw away the 14 answers already paid for.
-
-    Spend is accumulated here, at the point of the miss, rather than totalled
-    afterwards from a list of records — cached responses cost nothing, and a
-    tally that could not tell a hit from a miss would report a re-run as
-    costing full price.
-    """
-
-    def __init__(self, path: Path) -> None:
-        self.path = path
-        self.hits = 0
-        self.misses = 0
-        self.spend_usd = 0.0
-        self._data: dict[str, Any] = {}
-        if path.is_file():
-            self._data = json.loads(path.read_text(encoding="utf-8"))
-
-    def get_or_call(self, key_parts: dict[str, Any], call) -> dict[str, Any]:
-        key = cache_key(key_parts)
-
-        if key in self._data:
-            self.hits += 1
-            return self._data[key]
-
-        self.misses += 1
-        record = call()
-        in_rate, out_rate = PRICING.get(record["model"], (0.0, 0.0))
-        self.spend_usd += record["usage"]["input"] / 1e6 * in_rate
-        self.spend_usd += record["usage"]["output"] / 1e6 * out_rate
-
-        self._data[key] = record
-        self.path.write_text(json.dumps(self._data, indent=2), encoding="utf-8")
-        return record
 
 
 def request_kwargs(model: str, temperature: float | None = None) -> dict[str, Any]:
@@ -660,7 +611,7 @@ def main(argv: list[str] | None = None) -> int:
     client = anthropic.Anthropic(
         timeout=REQUEST_TIMEOUT_S, max_retries=MAX_RETRIES
     )
-    cache = ResponseCache(CACHE_PATH)
+    cache = ResponseCache(CACHE_PATH, pricing=PRICING)
 
     planned = len(eval_set) * 2 * 2  # 2 models, each answer graded once
     print(f"eval set   : {eval_set.source} ({len(eval_set)} cases)")

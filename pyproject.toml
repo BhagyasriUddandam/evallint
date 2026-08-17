@@ -22,7 +22,10 @@ dependencies = [
 # anthropic is here, NOT in [project.dependencies], because only the one-off
 # scripts/demo_discrimination_real.py uses it. The shipped library never
 # imports a provider SDK — that is the whole point of the injected scorer.
-dev = ["pytest>=8.0", "anthropic>=0.69"]
+# anthropic backs scripts/demo_discrimination_real.py; httpx backs
+# scripts/local_scorer.py (Ollama HTTP API). httpx is declared explicitly
+# rather than leaned on as an anthropic transitive dep.
+dev = ["pytest>=8.0", "anthropic>=0.69", "httpx>=0.27"]
 
 [project.scripts]
 evalcheck = "evalcheck.cli:main"
