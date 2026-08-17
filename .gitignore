@@ -6,3 +6,4 @@ __pycache__/
 scripts/.response_cache.json
 .env
 scripts/.response_cache.json
+scripts/.local_cache.json
