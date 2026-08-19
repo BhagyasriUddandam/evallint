@@ -33,13 +33,21 @@ import textwrap
 from pathlib import Path
 from typing import Any
 
-import anthropic
-
 # scripts/ is not a package, so make sibling modules importable whether this
 # file is run directly or loaded by path from a test.
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+from _anthropic_backend import (  # noqa: E402
+    MAX_RETRIES,
+    PRICING,
+    REQUEST_TIMEOUT_S,
+    UnsupportedSamplingError,
+    call_model,
+    make_client,
+    request_kwargs,
+)
 from _cache import ResponseCache, cache_key  # noqa: E402
+from _env import DEFAULT_ENV_PATH, load_env_file  # noqa: E402
 from evalcheck.checks import DiscriminationCheck, ScorerError  # noqa: E402
 from evalcheck.io import load  # noqa: E402
 
@@ -57,52 +65,6 @@ JUDGE_MODEL = "claude-sonnet-5"
 
 EVAL_SET = Path(__file__).resolve().parents[1] / "examples" / "sample_evalset.jsonl"
 CACHE_PATH = Path(__file__).resolve().parent / ".response_cache.json"
-
-# Without an explicit timeout the SDK default is 10 minutes, so one stalled
-# connection parks the whole run with no output — it looks like a hang, not a
-# failure. These two bound it instead.
-#
-# The SDK retries timeouts, so worst case per call is
-# REQUEST_TIMEOUT_S x (MAX_RETRIES + 1) = 90s, not 30s. Bounded either way.
-# If legitimate calls start timing out (a long thinking trace on a hard case),
-# raise the timeout rather than the retry count.
-REQUEST_TIMEOUT_S = 30.0
-MAX_RETRIES = 2
-
-# Sampling parameters (temperature / top_p / top_k) were REMOVED from the
-# Claude 5 family and from Opus 4.7/4.8 — sending temperature at all returns a
-# 400 on Opus 5, and any non-default value returns a 400 on Sonnet 5. They
-# remain available on Opus 4.6 / Sonnet 4.6 and the 4.5-generation models.
-#
-# So temperature=0 is NOT a knob that exists across the current model trio.
-# This deny-list makes that a loud, immediate error instead of a 400 forty
-# calls into a paid run.
-_NO_SAMPLING_PREFIXES = (
-    "claude-opus-5",
-    "claude-sonnet-5",
-    "claude-fable-5",
-    "claude-mythos-5",
-    "claude-opus-4-8",
-    "claude-opus-4-7",
-)
-
-
-def supports_temperature(model: str) -> bool:
-    """Whether this model accepts a `temperature` request parameter."""
-    return not model.startswith(_NO_SAMPLING_PREFIXES)
-
-
-class UnsupportedSamplingError(RuntimeError):
-    """A temperature was requested for a model that rejects the parameter."""
-
-# List prices per million tokens (input, output), for the run-cost estimate
-# only. Sonnet 5 has lower introductory pricing at the time of writing; using
-# the standard rate overestimates, which is the safe direction for a budget.
-PRICING = {
-    "claude-opus-5": (5.00, 25.00),
-    "claude-sonnet-5": (3.00, 15.00),
-    "claude-haiku-4-5": (1.00, 5.00),
-}
 
 # Two scorer prompts, run as an A/B.
 #
@@ -249,85 +211,6 @@ def judge_prompt_for(case, answer_text: str) -> str:
     return JUDGE_TEMPLATE.format(
         question=case.input, expected=case.expected, answer=answer_text
     )
-
-
-def request_kwargs(model: str, temperature: float | None = None) -> dict[str, Any]:
-    """Per-model request parameters. The knobs are not the same on every model.
-
-    Three real differences, each of which would be a runtime error or silent
-    cost if ignored:
-      - `output_config.effort` is rejected by Haiku 4.5.
-      - On the Claude 5 models thinking is ON when the field is omitted, and
-        max_tokens caps thinking PLUS the answer. A max_tokens sized for the
-        answer alone would truncate the response mid-sentence.
-      - `temperature` is rejected outright by the Claude 5 family and Opus
-        4.7/4.8. Rather than let that surface as a 400 partway through a paid
-        run, refuse before the first call.
-    """
-    if model.startswith("claude-haiku"):
-        kwargs: dict[str, Any] = {"max_tokens": 1000}
-    else:
-        kwargs = {"max_tokens": 4000, "output_config": {"effort": "low"}}
-
-    if temperature is not None:
-        if not supports_temperature(model):
-            raise UnsupportedSamplingError(
-                f"{model} does not accept a temperature parameter (the Claude 5 "
-                f"family and Opus 4.7/4.8 removed sampling parameters; sending "
-                f"one returns HTTP 400). Either drop --temperature, or switch "
-                f"to models that still accept it (e.g. claude-opus-4-6, "
-                f"claude-sonnet-4-6, claude-haiku-4-5)."
-            )
-        kwargs["temperature"] = temperature
-
-    return kwargs
-
-
-def call_model(
-    client: anthropic.Anthropic,
-    model: str,
-    system: str,
-    prompt: str,
-    temperature: float | None = None,
-) -> dict[str, Any]:
-    try:
-        response = client.messages.create(
-            model=model,
-            system=system,
-            messages=[{"role": "user", "content": prompt}],
-            **request_kwargs(model, temperature),
-        )
-    except anthropic.APITimeoutError as exc:
-        # Already retried MAX_RETRIES times by the SDK before landing here.
-        raise RuntimeError(
-            f"{model} timed out after {MAX_RETRIES + 1} attempts of "
-            f"{REQUEST_TIMEOUT_S:.0f}s"
-        ) from exc
-    except anthropic.APIConnectionError as exc:
-        raise RuntimeError(f"{model} could not be reached: {exc}") from exc
-    except anthropic.RateLimitError as exc:
-        raise RuntimeError(f"{model} rate limited after retries: {exc}") from exc
-
-    # Check stop_reason before touching content: a refusal returns HTTP 200
-    # with an empty content list, so indexing straight into content[0] would
-    # raise IndexError and disguise a policy decline as a code bug.
-    if response.stop_reason == "refusal":
-        raise RuntimeError(f"{model} declined the request (stop_reason=refusal)")
-
-    text = "".join(b.text for b in response.content if b.type == "text").strip()
-    if not text:
-        raise RuntimeError(
-            f"{model} returned no text (stop_reason={response.stop_reason})"
-        )
-
-    return {
-        "model": model,
-        "text": text,
-        "usage": {
-            "input": response.usage.input_tokens,
-            "output": response.usage.output_tokens,
-        },
-    }
 
 
 def build_scorer(
@@ -603,14 +486,17 @@ def main(argv: list[str] | None = None) -> int:
         print(f"{exc}\n\nNo API calls were made.", file=sys.stderr)
         return 1
 
+    load_env_file()
     if not os.environ.get("ANTHROPIC_API_KEY"):
-        print("ANTHROPIC_API_KEY is not set. Export it and re-run.", file=sys.stderr)
+        print(
+            f"ANTHROPIC_API_KEY is not set. Put it in {DEFAULT_ENV_PATH.name} "
+            "at the repo root, or export it, then re-run.",
+            file=sys.stderr,
+        )
         return 1
 
     eval_set = load(EVAL_SET)
-    client = anthropic.Anthropic(
-        timeout=REQUEST_TIMEOUT_S, max_retries=MAX_RETRIES
-    )
+    client = make_client()
     cache = ResponseCache(CACHE_PATH, pricing=PRICING)
 
     planned = len(eval_set) * 2 * 2  # 2 models, each answer graded once

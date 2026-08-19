@@ -29,8 +29,10 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import re
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Protocol
 
@@ -39,6 +41,7 @@ from typing import Any, Protocol
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from _cache import ResponseCache  # noqa: E402
+from _env import DEFAULT_ENV_PATH, load_env_file  # noqa: E402
 from evalcheck.checks import DiscriminationCheck, ScorerError  # noqa: E402
 from evalcheck.io import load  # noqa: E402
 
@@ -66,6 +69,17 @@ THINKING_MODELS = frozenset({"qwen3:8b", "qwen3:14b"})
 DEFAULT_JUDGE = "qwen3:14b"
 DEFAULT_TEMPERATURE = 0.0
 DEFAULT_SEED = 0
+
+# Grading can come from a different provider than the answers. With a
+# three-model local ladder the strongest model sits inside both configured
+# pairs, so a local judge always grades its own answers somewhere — an
+# Anthropic judge is the only way to get a grader that is independent of both
+# scored models.
+JUDGE_BACKENDS = ("ollama", "anthropic")
+# Opus 5 rather than Sonnet 5: the judge should be the most capable model
+# available, since a wrong verdict is indistinguishable from a model failure
+# in the output. It is also still independent of both scored local models.
+ANTHROPIC_JUDGE_MODEL = "claude-opus-5"
 
 # Thinking models can still emit reasoning inline even with think disabled.
 # The judge parse keys on the response STARTING with PASS, so a leaked
@@ -159,6 +173,7 @@ class OllamaClient:
     ) -> None:
         self.base_url = base_url.rstrip("/")
         self.timeout = timeout
+        self.calls = 0  # actual generations; cache hits never reach here
         self._http: Any = None
 
     def _client(self) -> Any:
@@ -178,6 +193,7 @@ class OllamaClient:
     ) -> dict[str, Any]:
         import httpx
 
+        self.calls += 1
         payload = {
             "model": model,
             "messages": [
@@ -255,23 +271,27 @@ def answer_key(
 
 
 def judge_key(
+    judge_backend: str,
     judge_model: str,
     case_id: str,
     system: str,
     prompt: str,
-    temperature: float,
-    seed: int,
+    temperature: float | None,
+    seed: int | None,
     repeat: int = 1,
 ) -> dict[str, Any]:
     """Identity of a grading verdict.
 
-    ``judge_model`` is in the key because the judge is selectable here, unlike
-    the Anthropic backend where it was a module constant. A configurable value
-    that is not in the key is precisely the staleness bug this project already
-    recorded as a lesson.
+    ``judge_backend`` is in the key as well as ``judge_model``, because model
+    names alone do not identify a grader once two providers are in play — and
+    because sampling means something different on each side (Ollama honours
+    temperature and seed; the Claude 5 models reject temperature outright, so
+    the Anthropic judge stores None for both). Keying on the model name only
+    would let a backend switch read the previous backend's verdicts, which is
+    the same staleness bug already recorded in tasks/lessons.md.
     """
     return {
-        "backend": "ollama",
+        "backend": judge_backend,
         "kind": "judge",
         "judge_model": judge_model,
         "case": case_id,
@@ -281,6 +301,61 @@ def judge_key(
         "seed": seed,
         "repeat": repeat,
     }
+
+
+@dataclass(frozen=True)
+class Judge:
+    """Everything about the grader, in one object.
+
+    Bundled because the five fields must stay consistent with each other:
+    the client that gets called, the model name, and the sampling values that
+    were actually sent all feed the same cache key. Passing them as five loose
+    arguments is how they drift.
+    """
+
+    backend: str
+    model: str
+    client: Any
+    temperature: float | None
+    seed: int | None
+
+
+class AnthropicJudgeClient:
+    """Adapts the Anthropic transport to the local backend's `chat` shape.
+
+    Deliberately DROPS temperature and seed. `claude-sonnet-5` returns a 400
+    for any non-default temperature and has no seed parameter at all, so the
+    Anthropic judge cannot be made deterministic the way the Ollama judge can.
+    That is a real trade — self-preference bias is removed, sampling noise in
+    the grader is introduced — and it is reported as a limitation rather than
+    hidden here.
+    """
+
+    def __init__(self, client: Any = None, model: str = ANTHROPIC_JUDGE_MODEL) -> None:
+        self._client = client
+        self.model = model
+        self.calls = 0
+
+    def _ensure(self) -> Any:
+        if self._client is None:
+            import _anthropic_backend
+
+            self._client = _anthropic_backend.make_client()
+        return self._client
+
+    def chat(
+        self,
+        model: str,
+        system: str,
+        prompt: str,
+        temperature: float | None = None,
+        seed: int | None = None,
+    ) -> dict[str, Any]:
+        import _anthropic_backend
+
+        self.calls += 1
+        # temperature/seed intentionally not forwarded — see class docstring.
+        return _anthropic_backend.call_model(self._ensure(), model, system, prompt)
 
 
 def judge_prompt_for(case, answer_text: str) -> str:
@@ -294,7 +369,7 @@ def judge_prompt_for(case, answer_text: str) -> str:
 def build_scorer(
     client: ChatClient,
     cache: ResponseCache,
-    judge_model: str,
+    judge: Judge,
     answer_system: str = ANSWER_SYSTEM,
     temperature: float = DEFAULT_TEMPERATURE,
     seed: int = DEFAULT_SEED,
@@ -303,7 +378,8 @@ def build_scorer(
     """Return the `score(case, model) -> bool` the check consumes.
 
     Same closure shape as the Anthropic backend, and the check cannot tell
-    them apart. That is the entire point of this file.
+    them apart. That is the entire point of this file — and with an Anthropic
+    judge the single run spans two providers without the check noticing.
     """
 
     def score(case, model: str) -> bool:
@@ -322,10 +398,17 @@ def build_scorer(
         prompt = judge_prompt_for(case, answer["text"])
         verdict = cache.get_or_call(
             judge_key(
-                judge_model, case.id, JUDGE_SYSTEM, prompt, temperature, seed, repeat
+                judge.backend,
+                judge.model,
+                case.id,
+                JUDGE_SYSTEM,
+                prompt,
+                judge.temperature,
+                judge.seed,
+                repeat,
             ),
-            lambda: client.chat(
-                judge_model, JUDGE_SYSTEM, prompt, temperature, seed
+            lambda: judge.client.chat(
+                judge.model, JUDGE_SYSTEM, prompt, judge.temperature, judge.seed
             ),
         )
 
@@ -334,25 +417,86 @@ def build_scorer(
     return score
 
 
-def judge_limitations(judge_model: str, pair: tuple[str, str]) -> list[str]:
+def make_judge(
+    backend: str,
+    model: str | None,
+    pair: tuple[str, str],
+    temperature: float,
+    seed: int,
+    base_url: str = OLLAMA_URL,
+    client: Any = None,
+) -> Judge:
+    """Assemble the grader for this run.
+
+    Sampling values are resolved HERE, once, so that the values placed in the
+    cache key are the same values the client will actually send.
+    """
+    if backend not in JUDGE_BACKENDS:
+        raise ValueError(f"unknown judge backend {backend!r}")
+
+    if backend == "anthropic":
+        return Judge(
+            backend="anthropic",
+            model=model or ANTHROPIC_JUDGE_MODEL,
+            client=client or AnthropicJudgeClient(),
+            # None, not 0.0: the Claude 5 models reject temperature and have no
+            # seed. Recording the values that were NOT sent would be a lie in
+            # the cache key.
+            temperature=None,
+            seed=None,
+        )
+
+    return Judge(
+        backend="ollama",
+        model=model or DEFAULT_JUDGE,
+        client=client or OllamaClient(base_url=base_url),
+        temperature=temperature,
+        seed=seed,
+    )
+
+
+def judge_limitations(judge: Judge, pair: tuple[str, str]) -> list[str]:
     """State what this judge choice cannot tell you.
 
-    With a three-model ladder and the strongest model in both requested pairs,
-    an independent judge and a capable judge are mutually exclusive. Rather
-    than pick silently, say which trade was made.
+    Every option here trades one confound for another, so the job is to name
+    which trade was made rather than to imply the grader is neutral.
     """
     notes = []
-    if judge_model in pair:
+
+    if judge.backend == "anthropic":
+        # Independent of both scored models, so no self-preference — but
+        # independence is not neutrality.
         notes.append(
-            f"JUDGE IS ALSO A SCORED MODEL: '{judge_model}' grades its own "
+            f"CROSS-FAMILY JUDGE: '{judge.model}' is from a different model "
+            "family than the scored models, so it is independent of both — no "
+            "self-preference bias. But it may systematically favour or "
+            "disfavour the answer STYLE of a different family (length, "
+            "hedging, formatting, how directly an answer is asserted). That is "
+            "a different confound, not the absence of one: a shift in results "
+            "versus a local judge is evidence the grader changed, not proof "
+            "either grader is right."
+        )
+        notes.append(
+            "NON-DETERMINISTIC GRADING: the Claude 5 models reject a "
+            "temperature parameter, so unlike the Ollama judge at temperature "
+            "0 this grader cannot be pinned. Repeated runs can return different "
+            "verdicts for identical answers — use --repeat to measure that "
+            "rather than assuming a single run is stable."
+        )
+        return notes
+
+    if judge.model in pair:
+        notes.append(
+            f"JUDGE IS ALSO A SCORED MODEL: '{judge.model}' grades its own "
             "answers in this run. Self-preference bias inflates its pass rate, "
             "which pushes results toward 'the strong model discriminates' "
             "regardless of whether it does. Treat the pass rate for "
-            f"'{judge_model}' as an upper bound, not a measurement."
+            f"'{judge.model}' as an upper bound, not a measurement. "
+            "--judge-backend anthropic removes this confound."
         )
-    if judge_model != MODEL_LADDER[-1]:
+    if judge.model != MODEL_LADDER[-1]:
         notes.append(
-            f"Judge '{judge_model}' is not the strongest available model "
+            f"Judge '{judge.model}' is not the strongest available model "
             f"('{MODEL_LADDER[-1]}'), so grading quality is itself a "
             "limitation — a wrong verdict is indistinguishable from a model "
             "failure in the output."
@@ -370,10 +514,20 @@ def main(argv: list[str] | None = None) -> int:
         % (PAIRS["wide"], PAIRS["narrow"]),
     )
     parser.add_argument(
+        "--judge-backend",
+        choices=JUDGE_BACKENDS,
+        default="ollama",
+        help="Where grading runs. 'ollama' (default) keeps everything local "
+        "and free but the judge is always one of the scored models. "
+        f"'anthropic' grades with {ANTHROPIC_JUDGE_MODEL} — independent of "
+        "both scored models, costs money, needs ANTHROPIC_API_KEY. Answers "
+        "always come from Ollama either way.",
+    )
+    parser.add_argument(
         "--judge",
-        default=DEFAULT_JUDGE,
-        help=f"Grading model (default {DEFAULT_JUDGE}). Pick one outside the "
-        "scored pair for an independent verdict, at the cost of a weaker judge.",
+        default=None,
+        help=f"Grading model. Defaults to {DEFAULT_JUDGE} for the ollama "
+        f"backend and {ANTHROPIC_JUDGE_MODEL} for the anthropic backend.",
     )
     parser.add_argument("--temperature", type=float, default=DEFAULT_TEMPERATURE)
     parser.add_argument("--seed", type=int, default=DEFAULT_SEED)
@@ -389,21 +543,56 @@ def main(argv: list[str] | None = None) -> int:
 
     weak, strong = PAIRS[args.pair]
     eval_set = load(EVAL_SET)
-    cache = ResponseCache(CACHE_PATH)  # no pricing: local inference is free
+
+    if args.judge_backend == "anthropic":
+        load_env_file()
+    if args.judge_backend == "anthropic" and not os.environ.get("ANTHROPIC_API_KEY"):
+        print(
+            "--judge-backend anthropic needs ANTHROPIC_API_KEY. Put it in "
+            f"{DEFAULT_ENV_PATH.name} at the repo root, export it, or use "
+            "the default --judge-backend ollama.",
+            file=sys.stderr,
+        )
+        return 1
+
+    judge = make_judge(
+        args.judge_backend,
+        args.judge,
+        (weak, strong),
+        args.temperature,
+        args.seed,
+        base_url=args.base_url,
+    )
+
+    # Pricing only matters for the Anthropic judge. Ollama models are absent
+    # from the table, so answer generations contribute exactly $0 and the
+    # cache's spend counter is, by construction, judge spend alone.
+    pricing = None
+    if judge.backend == "anthropic":
+        import _anthropic_backend
+
+        pricing = _anthropic_backend.PRICING
+    cache = ResponseCache(CACHE_PATH, pricing=pricing)
+
+    answer_client = OllamaClient(base_url=args.base_url)
 
     print(f"eval set   : {eval_set.source} ({len(eval_set)} cases)")
     print(f"pair       : {args.pair}  weak={weak}  strong={strong}")
-    print(f"judge      : {args.judge}")
-    print(f"sampling   : temperature={args.temperature} seed={args.seed}")
+    print(f"answers    : ollama (local, free)")
+    print(f"judge      : {judge.backend}:{judge.model}", end="")
+    print(" [independent of both scored models]"
+          if judge.backend == "anthropic" or judge.model not in (weak, strong)
+          else " [ALSO A SCORED MODEL — see limitations]")
+    print(f"sampling   : answers temperature={args.temperature} seed={args.seed}", end="")
+    print(f" | judge temperature={judge.temperature} seed={judge.seed}")
     print(f"repeat     : {args.repeat}")
     print(f"cache      : {CACHE_PATH} ({len(cache)} entries)\n")
 
-    client = OllamaClient(base_url=args.base_url)
     check = DiscriminationCheck(
         build_scorer(
-            client,
+            answer_client,
             cache,
-            args.judge,
+            judge,
             ANSWER_SYSTEM,
             args.temperature,
             args.seed,
@@ -437,7 +626,7 @@ def main(argv: list[str] | None = None) -> int:
     print(f"\nLIMITATIONS ({len(result.limitations)})")
     for limitation in result.limitations:
         print(f"  - {limitation}")
-    for note in judge_limitations(args.judge, (weak, strong)):
+    for note in judge_limitations(judge, (weak, strong)):
         print(f"  - DEMO-SPECIFIC: {note}")
     print(
         "  - DEMO-SPECIFIC: local quantized models (Q4_K_M) are weaker than "
@@ -446,10 +635,20 @@ def main(argv: list[str] | None = None) -> int:
     )
 
     total = cache.hits + cache.misses
+    judge_calls = getattr(judge.client, "calls", 0)
     print("\nCOST")
-    print(f"  generations this run : {cache.misses}")
-    print(f"  served from cache    : {cache.hits} of {total}")
-    print("  spend                : $0.0000 (local inference)")
+    print(f"  cache misses this run : {cache.misses} (of {total} lookups)")
+    print(f"  served from cache     : {cache.hits}")
+    print(
+        f"  answers  : {max(cache.misses - judge_calls, 0)} local generations"
+        "  -> $0.0000"
+    )
+    if judge.backend == "anthropic":
+        print(f"  grading  : {judge_calls} {judge.model} calls  -> ${cache.spend_usd:.4f}")
+        print(f"  TOTAL SPEND           : ${cache.spend_usd:.4f}")
+    else:
+        print(f"  grading  : {judge_calls} local calls  -> $0.0000")
+        print("  TOTAL SPEND           : $0.0000 (fully local)")
     return 0
 
 
