@@ -1,0 +1,147 @@
+name: test
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+# A new push to the same branch makes the previous run irrelevant.
+concurrency:
+  group: test-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  # The matrix deliberately installs the CORE package only — no [embeddings]
+  # extra, so no torch. That keeps four jobs at ~1s of test time instead of
+  # pulling ~2GB each, and it continuously proves the thing the packaging
+  # decision claims: evallint is fully usable without the heavy dependency.
+  # The 3 real-model tests skip cleanly here; the `full` job below runs them.
+  core:
+    name: core (py${{ matrix.python }} / ${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+        python: ["3.12", "3.13"]
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v10
+        with:
+          python-version: ${{ matrix.python }}
+          enable-cache: true
+
+      - name: Install core package + test runner only
+        # Deliberately NOT `uv sync`, and deliberately NOT `uv run` below.
+        # `uv sync` installs the dev group; `uv run` AUTO-SYNCS it, and the dev
+        # group contains sentence-transformers. Either would drag torch in and
+        # quietly turn this into a full install that still called itself "core".
+        # Calling the venv's interpreter directly has no such behaviour.
+        run: |
+          uv venv
+          uv pip install -e . pytest
+
+      - name: Assert the core install really has no torch
+        # Guards the packaging decision from silently regressing. If someone
+        # moves sentence-transformers back into [project.dependencies], this
+        # fails here rather than surprising users with a 2GB download.
+        shell: bash
+        run: |
+          if .venv/bin/python -c "import torch" 2>/dev/null; then
+            echo "::error::torch is present in a CORE install — sentence-transformers leaked into [project.dependencies]"
+            exit 1
+          fi
+          echo "confirmed: no torch in the core install"
+
+      - name: Run tests
+        run: .venv/bin/python -m pytest -q
+
+      - name: Smoke-test the CLI
+        run: .venv/bin/evallint examples/sample_evalset.jsonl
+
+  # One job with the optional extra, so the two end-to-end embedding tests
+  # actually execute somewhere. Ubuntu + oldest supported Python is enough:
+  # the thing under test is the model integration, not the platform.
+  full:
+    name: full (with [embeddings])
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v10
+        with:
+          python-version: "3.12"
+          enable-cache: true
+
+      - name: Cache the sentence-transformers model
+        # ~90MB of weights, downloaded on first use. Caching keeps this job
+        # from re-fetching them on every run.
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/huggingface
+          key: hf-${{ runner.os }}-all-MiniLM-L6-v2
+
+      - name: Install everything (dev group includes the extra)
+        run: uv sync
+
+      - name: Run tests, failing if the real-model tests were skipped
+        # A silent skip here would mean the embedding path is untested while CI
+        # still reports green — the exact class of quiet failure this project
+        # is about. -r a lists skip reasons in the log.
+        run: |
+          uv run pytest -q -ra | tee result.txt
+          if grep -qE "^[0-9]+ passed, [0-9]+ skipped" result.txt; then
+            echo "::error::tests were skipped in the full job — the real-model tests did not run"
+            grep -E "SKIPPED" result.txt || true
+            exit 1
+          fi
+
+  # Proves the artifacts are publishable on every push, not just at release
+  # time. A packaging error found here is free; found during a release it
+  # burns a version number permanently.
+  build:
+    name: build + validate artifacts
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v10
+        with:
+          python-version: "3.12"
+          enable-cache: true
+
+      - name: Build sdist + wheel
+        run: uv build
+
+      - name: Validate metadata
+        run: uvx twine check --strict dist/*
+
+      - name: Install the built wheel in a clean venv and use it
+        # Tests the ARTIFACT, not the source tree. Catches missing package
+        # data (py.typed), a broken console script, or an import that only
+        # works from the repo root.
+        run: |
+          uv venv /tmp/fresh
+          uv pip install --python /tmp/fresh/bin/python dist/*.whl
+          /tmp/fresh/bin/evallint examples/sample_evalset.jsonl
+          /tmp/fresh/bin/python -c "
+          import evallint, pathlib
+          assert (pathlib.Path(evallint.__file__).parent / 'py.typed').is_file(), 'py.typed missing from the wheel'
+          assert evallint.__version__, 'version not readable from metadata'
+          print('wheel OK:', evallint.__version__, '|', len(evallint.__all__), 'exports')
+          "
+
+      - name: Upload artifacts for inspection
+        uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/

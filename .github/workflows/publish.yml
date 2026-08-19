@@ -1,0 +1,130 @@
+name: publish
+
+# Two entry points:
+#   - workflow_dispatch -> TestPyPI, so the pipeline itself can be validated
+#     BEFORE a real release. Use this first.
+#   - release published  -> PyPI, the real thing.
+#
+# No API tokens anywhere. Both use PyPI Trusted Publishing (OIDC): GitHub mints
+# a short-lived identity token for this exact repo + workflow + environment, and
+# PyPI verifies it. Nothing long-lived is stored in repository secrets, so there
+# is no token to leak or rotate.
+#
+# ONE-TIME SETUP, required before the first run of each job (see also
+# docs/publishing.md):
+#   TestPyPI: https://test.pypi.org/manage/account/publishing/
+#   PyPI:     https://pypi.org/manage/account/publishing/
+# Register a pending publisher with EXACTLY these values:
+#   PyPI project name : evallint
+#   Owner             : BhagyasriUddandam
+#   Repository name   : evallint
+#   Workflow filename : publish.yml
+#   Environment name  : testpypi   (for TestPyPI)  /  pypi   (for PyPI)
+# A mismatch in any field is rejected with an unhelpful 403, so copy them.
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      target:
+        description: "Where to publish"
+        required: true
+        default: testpypi
+        type: choice
+        options: [testpypi, pypi]
+
+permissions:
+  contents: read
+
+jobs:
+  # Build ONCE and reuse the exact artifacts for whichever upload runs. Building
+  # separately per target could ship bytes that were never validated.
+  build:
+    name: build + validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v10
+        with:
+          python-version: "3.12"
+          enable-cache: true
+
+      - name: Refuse to publish if the tag does not match the package version
+        # A release tagged v0.2.0 that ships 0.1.0 is unfixable after upload:
+        # PyPI never allows re-uploading a version. Catch it before the push.
+        if: github.event_name == 'release'
+        run: |
+          tag="${GITHUB_REF_NAME#v}"
+          pkg=$(uv run --no-project python -c "import tomllib,pathlib; print(tomllib.loads(pathlib.Path('pyproject.toml').read_text())['project']['version'])")
+          echo "tag=$tag  pyproject=$pkg"
+          if [ "$tag" != "$pkg" ]; then
+            echo "::error::release tag ($tag) does not match pyproject version ($pkg)"
+            exit 1
+          fi
+
+      - name: Run the tests before shipping anything
+        run: |
+          uv sync
+          uv run pytest -q
+
+      - name: Build
+        run: uv build
+
+      - name: Validate metadata
+        run: uvx twine check --strict dist/*
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+  testpypi:
+    name: publish to TestPyPI
+    needs: build
+    if: github.event_name == 'workflow_dispatch' && inputs.target == 'testpypi'
+    runs-on: ubuntu-latest
+    environment:
+      name: testpypi
+      url: https://test.pypi.org/p/evallint
+    permissions:
+      id-token: write # required for Trusted Publishing; nothing else needs it
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - name: Upload
+        uses: pypa/gh-action-pypi-publish@release/v1
+        with:
+          repository-url: https://test.pypi.org/legacy/
+          # TestPyPI accumulates junk from dry runs; don't fail a rerun just
+          # because that exact file is already there.
+          skip-existing: true
+
+  pypi:
+    name: publish to PyPI
+    needs: build
+    if: >-
+      github.event_name == 'release' ||
+      (github.event_name == 'workflow_dispatch' && inputs.target == 'pypi')
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/p/evallint
+    permissions:
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: dist
+          path: dist/
+
+      - name: Upload
+        # @release/v1 is PyPA's own documented reference — a maintained branch
+        # that receives security and API fixes. Pinning a tag instead would
+        # freeze those out on a workflow that handles identity tokens.
+        uses: pypa/gh-action-pypi-publish@release/v1
