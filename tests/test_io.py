@@ -1,4 +1,4 @@
-"""Tests for evalcheck.io.
+"""Tests for evallint.io.
 
 Two things are being proven here:
   1. Every supported format loads into the same EvalSet.
@@ -15,8 +15,8 @@ from pathlib import Path
 
 import pytest
 
-from evalcheck.io import LoadError, load
-from evalcheck.schema import EvalCase, EvalSet
+from evallint.io import LoadError, load
+from evallint.schema import EvalCase, EvalSet
 
 EXAMPLE_SET = Path(__file__).resolve().parents[1] / "examples" / "sample_evalset.jsonl"
 
@@ -267,3 +267,45 @@ def test_example_evalset_still_contains_its_planted_flaws() -> None:
     for case in eval_set:
         counts[case.label] = counts.get(case.label, 0) + 1
     assert counts == {"billing": 14, "password_reset": 4, "refund": 1, "bug_report": 1}
+
+
+# --------------------------------------------------------------------------
+# UTF-8 BOM — the Excel / PowerShell export case
+# --------------------------------------------------------------------------
+
+
+def test_bom_csv_keeps_the_real_ids(tmp_path) -> None:
+    """A BOM'd CSV used to load "successfully" with its id column named
+    "﻿id", so real ids were demoted to metadata and every case was
+    renamed case_1, case_2... Findings then named cases that did not exist in
+    the user's file. It never errored, which made it worse than a crash."""
+    p = tmp_path / "excel.csv"
+    p.write_bytes(b"\xef\xbb\xbfid,input,expected,label\na,hello,x,l1\nb,world,y,l2\n")
+
+    eval_set = load(p)
+
+    assert [c.id for c in eval_set] == ["a", "b"]
+    assert all(c.metadata == {} for c in eval_set), "no BOM'd key leaked to metadata"
+    assert eval_set.cases[0].label == "l1"
+
+
+def test_bom_jsonl_loads(tmp_path) -> None:
+    p = tmp_path / "bom.jsonl"
+    p.write_bytes(b'\xef\xbb\xbf{"id":"a","input":"x"}\n')
+
+    assert [c.id for c in load(p)] == ["a"]
+
+
+def test_bom_json_loads(tmp_path) -> None:
+    p = tmp_path / "bom.json"
+    p.write_bytes(b'\xef\xbb\xbf[{"id":"a","input":"x"}]')
+
+    assert [c.id for c in load(p)] == ["a"]
+
+
+def test_files_without_a_bom_are_unaffected(tmp_path) -> None:
+    """utf-8-sig must be a no-op on ordinary files."""
+    p = tmp_path / "plain.csv"
+    p.write_text("id,input\na,hello\n", encoding="utf-8")
+
+    assert [c.id for c in load(p)] == ["a"]

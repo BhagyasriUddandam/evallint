@@ -12,18 +12,30 @@ user's own bookkeeping survives a round trip through the tool.
 Errors are raised as LoadError with the file and location baked into the
 message ("sample.jsonl line 4: ..."), because a bad row in a 5000-line eval set
 is useless to report without saying which row.
+
+Every reader uses ``utf-8-sig``, not ``utf-8``. Excel, PowerShell and several
+Windows tools write a UTF-8 BOM, and a BOM is the worst kind of input problem
+here because it does not fail: read as plain utf-8, a BOM'd CSV parses with its
+first column named "\ufeffid" instead of "id", so the real ids are silently
+demoted to metadata and every case is renamed case_1, case_2, ... Findings then
+point at case ids that do not exist in the user's file. ``utf-8-sig`` strips a
+BOM when present and is a no-op when it is not.
 """
 
 from __future__ import annotations
 
 import csv
 import json
+import logging
+import time
 from pathlib import Path
 from typing import Any
 
 from .schema import EvalCase, EvalSet, SchemaError
 
 __all__ = ["LoadError", "load"]
+
+log = logging.getLogger(__name__)
 
 CANONICAL_FIELDS = ("id", "input", "expected", "label")
 _JSONL_SUFFIXES = {".jsonl", ".ndjson"}
@@ -46,6 +58,7 @@ def load(path: str | Path) -> EvalSet:
         LoadError: The file is missing, has an unsupported extension, is not
             parseable, or contains a case that violates the schema.
     """
+    started = time.perf_counter()
     path = Path(path)
     if not path.is_file():
         raise LoadError(f"{path}: no such file")
@@ -69,14 +82,20 @@ def load(path: str | Path) -> EvalSet:
     ]
 
     try:
-        return EvalSet(cases=tuple(cases), source=str(path))
+        eval_set = EvalSet(cases=tuple(cases), source=str(path))
     except SchemaError as exc:
         raise LoadError(f"{path.name}: {exc}") from exc
+
+    log.info(
+        "loaded %d cases from %s (%s) in %.3fs",
+        len(eval_set), path, suffix.lstrip(".") or "?", time.perf_counter() - started,
+    )
+    return eval_set
 
 
 def _read_jsonl(path: Path) -> list[tuple[str, Any]]:
     records: list[tuple[str, Any]] = []
-    text = path.read_text(encoding="utf-8")
+    text = path.read_text(encoding="utf-8-sig")
     for lineno, line in enumerate(text.splitlines(), start=1):
         if not line.strip():
             continue  # blank lines are common padding, not an error
@@ -92,7 +111,7 @@ def _read_jsonl(path: Path) -> list[tuple[str, Any]]:
 
 def _read_json(path: Path) -> list[tuple[str, Any]]:
     try:
-        payload = json.loads(path.read_text(encoding="utf-8"))
+        payload = json.loads(path.read_text(encoding="utf-8-sig"))
     except json.JSONDecodeError as exc:
         raise LoadError(
             f"{path.name}: invalid JSON ({exc.msg} at line {exc.lineno})"
@@ -117,7 +136,7 @@ def _read_json(path: Path) -> list[tuple[str, Any]]:
 
 
 def _read_csv(path: Path) -> list[tuple[str, Any]]:
-    with path.open(newline="", encoding="utf-8") as handle:
+    with path.open(newline="", encoding="utf-8-sig") as handle:
         reader = csv.DictReader(handle)
         if reader.fieldnames is None:
             raise LoadError(f"{path.name}: file is empty (no header row)")

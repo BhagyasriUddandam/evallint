@@ -11,9 +11,9 @@ from pathlib import Path
 
 import pytest
 
-from evalcheck.checks import CheckResult, Finding, ImbalanceCheck, Severity
-from evalcheck.io import load
-from evalcheck.schema import EvalCase, EvalSet
+from evallint.checks import CheckResult, Finding, ImbalanceCheck, Severity
+from evallint.io import load
+from evallint.schema import EvalCase, EvalSet
 
 EXAMPLE_SET = Path(__file__).resolve().parents[1] / "examples" / "sample_evalset.jsonl"
 

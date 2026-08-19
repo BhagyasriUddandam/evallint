@@ -5,7 +5,7 @@ NOT part of the shipped library. Like the Anthropic backend, this file imports
 the check and does not modify it. That is the claim being tested: the check
 never learns which provider is behind the scorer. Swapping a paid frontier API
 for three local GGUF models required ZERO changes to
-src/evalcheck/checks/discrimination.py.
+src/evallint/checks/discrimination.py.
 
 WHY A SECOND BACKEND
     1. It is the actual proof that the injected-scorer interface is
@@ -42,8 +42,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from _cache import ResponseCache  # noqa: E402
 from _env import DEFAULT_ENV_PATH, load_env_file  # noqa: E402
-from evalcheck.checks import DiscriminationCheck, ScorerError  # noqa: E402
-from evalcheck.io import load  # noqa: E402
+from evallint.checks import DiscriminationCheck, ScorerError  # noqa: E402
+from evallint.io import load  # noqa: E402
 
 OLLAMA_URL = "http://localhost:11434"
 REQUEST_TIMEOUT_S = 180.0  # local generation is slower than an API call

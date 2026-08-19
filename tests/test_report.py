@@ -12,8 +12,8 @@ import json
 import pytest
 from rich.console import Console
 
-from evalcheck.checks.base import CheckResult, Finding, Severity
-from evalcheck.report import render_text, to_dict
+from evallint.checks.base import CheckResult, Finding, Severity
+from evallint.report import render_text, to_dict
 
 LIMITS = ("this check cannot read minds",)
 

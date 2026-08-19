@@ -42,8 +42,8 @@ local_scorer = _load("local_scorer")
 _cache = _load("_cache")
 _env = _load("_env")
 
-from evalcheck.checks import DiscriminationCheck, ScorerError  # noqa: E402
-from evalcheck.schema import EvalCase, EvalSet  # noqa: E402
+from evallint.checks import DiscriminationCheck, ScorerError  # noqa: E402
+from evallint.schema import EvalCase, EvalSet  # noqa: E402
 
 WEAK, STRONG = local_scorer.PAIRS["wide"]
 JUDGE = local_scorer.DEFAULT_JUDGE
@@ -590,3 +590,90 @@ def test_model_ladder_is_ordered_weakest_first() -> None:
         assert local_scorer.MODEL_LADDER.index(weak) < local_scorer.MODEL_LADDER.index(
             strong
         )
+
+
+# --------------------------------------------------------------------------
+# Cache thread safety — required once max_workers > 1
+# --------------------------------------------------------------------------
+
+
+def test_cache_survives_concurrent_misses(tmp_path) -> None:
+    """DiscriminationCheck(max_workers=N) calls the scorer from N threads, and
+    the scorer calls straight into the cache. Unsynchronised, two threads
+    serialising overlapping snapshots of the same dict can drop an entry that
+    was already paid for, or truncate the file."""
+    import json
+    import threading
+
+    path = tmp_path / "c.json"
+    cache = _cache.ResponseCache(path)
+    barrier = threading.Barrier(16)
+
+    def work(i: int) -> None:
+        barrier.wait()  # maximise overlap
+        cache.get_or_call(
+            {"k": i},
+            lambda: {"model": "m", "text": f"t{i}", "usage": {"input": 1, "output": 1}},
+        )
+
+    threads = [threading.Thread(target=work, args=(i,)) for i in range(16)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+
+    on_disk = json.loads(path.read_text())
+    assert len(on_disk) == 16, f"lost entries under concurrency: {len(on_disk)}/16"
+    assert cache.misses == 16
+    assert len(cache) == 16
+
+
+def test_cache_spend_total_is_not_lost_to_a_race(tmp_path) -> None:
+    import threading
+
+    pricing = {"m": (1_000_000.0, 0.0)}  # 1 input token == $1, easy to verify
+    cache = _cache.ResponseCache(tmp_path / "c.json", pricing=pricing)
+    barrier = threading.Barrier(20)
+
+    def work(i: int) -> None:
+        barrier.wait()
+        cache.get_or_call(
+            {"k": i},
+            lambda: {"model": "m", "text": "t", "usage": {"input": 1, "output": 0}},
+        )
+
+    threads = [threading.Thread(target=work, args=(i,)) for i in range(20)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+
+    assert cache.spend_usd == pytest.approx(20.0), "spend was lost to a race"
+
+
+def test_cached_hits_are_served_under_concurrency(tmp_path) -> None:
+    """A pre-populated cache must not call out at all, from any thread."""
+    import threading
+
+    path = tmp_path / "c.json"
+    warm = _cache.ResponseCache(path)
+    for i in range(8):
+        warm.get_or_call(
+            {"k": i},
+            lambda i=i: {"model": "m", "text": f"t{i}", "usage": {"input": 1, "output": 1}},
+        )
+
+    cache = _cache.ResponseCache(path)
+    called = []
+
+    def work(i: int) -> None:
+        cache.get_or_call({"k": i}, lambda: called.append(i) or {"model": "m", "text": "x", "usage": {"input": 0, "output": 0}})
+
+    threads = [threading.Thread(target=work, args=(i,)) for i in range(8)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+
+    assert called == [], "a warm cache called out under concurrency"
+    assert cache.hits == 8

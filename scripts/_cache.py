@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import threading
 from pathlib import Path
 from typing import Any
 
@@ -59,25 +60,44 @@ class ResponseCache:
         self.misses = 0
         self.spend_usd = 0.0
         self._data: dict[str, Any] = {}
+        # DiscriminationCheck(max_workers=N>1) calls the scorer from several
+        # threads, and the scorer calls straight into here. Without this lock,
+        # concurrent misses race on the counters, on the spend total, and worst
+        # of all on write_text: two threads serialising overlapping snapshots of
+        # _data can drop an entry that was already paid for, or truncate the
+        # file. It would corrupt quietly, which is the failure mode this project
+        # is least willing to ship.
+        self._lock = threading.Lock()
         if path.is_file():
             self._data = json.loads(path.read_text(encoding="utf-8"))
 
     def get_or_call(self, key_parts: dict[str, Any], call) -> dict[str, Any]:
         key = cache_key(key_parts)
 
-        if key in self._data:
-            self.hits += 1
-            return self._data[key]
+        with self._lock:
+            if key in self._data:
+                self.hits += 1
+                return self._data[key]
+            self.misses += 1
 
-        self.misses += 1
+        # The expensive call is made OUTSIDE the lock, otherwise concurrency
+        # buys nothing: every worker would queue behind the one making an API
+        # request. The cost is that two threads can both miss on the same key
+        # and both do the work; that duplicates one request rather than
+        # corrupting anything, and identical requests are rare in practice
+        # because each (case, model, repeat) key is distinct by construction.
         record = call()
-        in_rate, out_rate = self.pricing.get(record["model"], (0.0, 0.0))
-        self.spend_usd += record["usage"]["input"] / 1e6 * in_rate
-        self.spend_usd += record["usage"]["output"] / 1e6 * out_rate
 
-        self._data[key] = record
-        self.path.parent.mkdir(parents=True, exist_ok=True)
-        self.path.write_text(json.dumps(self._data, indent=2), encoding="utf-8")
+        with self._lock:
+            in_rate, out_rate = self.pricing.get(record["model"], (0.0, 0.0))
+            self.spend_usd += record["usage"]["input"] / 1e6 * in_rate
+            self.spend_usd += record["usage"]["output"] / 1e6 * out_rate
+            self._data[key] = record
+            self.path.parent.mkdir(parents=True, exist_ok=True)
+            # Serialise the snapshot while holding the lock: building the JSON
+            # outside it could race with another thread mutating _data.
+            payload = json.dumps(self._data, indent=2)
+            self.path.write_text(payload, encoding="utf-8")
         return record
 
     def get(self, key_parts: dict[str, Any]) -> dict[str, Any] | None:

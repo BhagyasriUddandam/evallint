@@ -18,9 +18,9 @@ from pathlib import Path
 import numpy as np
 import pytest
 
-from evalcheck.checks import DuplicateCheck
-from evalcheck.io import load
-from evalcheck.schema import EvalCase, EvalSet
+from evallint.checks import DuplicateCheck, MissingEmbeddingsError
+from evallint.io import load
+from evallint.schema import EvalCase, EvalSet
 
 EXAMPLE_SET = Path(__file__).resolve().parents[1] / "examples" / "sample_evalset.jsonl"
 
@@ -324,3 +324,55 @@ def test_the_documented_separation_gap_is_real(real_check: DuplicateCheck) -> No
     # And the honest caveat: 0.85 sits ABOVE that gap, so the weakest pair in
     # the billing_001-003 cluster is joined transitively, not by a direct edge.
     assert min(within) < real_check.threshold
+
+
+# --------------------------------------------------------------------------
+# The optional [embeddings] extra
+# --------------------------------------------------------------------------
+
+
+def test_missing_extra_raises_an_actionable_error(monkeypatch) -> None:
+    """sentence-transformers is an optional extra, so a user without it must
+    get install instructions rather than a bare ImportError traceback."""
+    import builtins
+
+    real_import = builtins.__import__
+
+    def no_sentence_transformers(name, *args, **kwargs):
+        if name.startswith("sentence_transformers"):
+            raise ImportError("No module named 'sentence_transformers'")
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", no_sentence_transformers)
+
+    check = DuplicateCheck()
+    with pytest.raises(MissingEmbeddingsError) as excinfo:
+        check.run(make_set(["a b c", "d e f"]))
+
+    message = str(excinfo.value)
+    assert "evallint[embeddings]" in message
+    assert "embedder=" in message, "should mention the bring-your-own escape hatch"
+    assert "--skip-duplicates" in message
+
+
+def test_missing_extra_error_is_an_importerror() -> None:
+    """`except ImportError` must still catch it, for callers who guard broadly."""
+    assert issubclass(MissingEmbeddingsError, ImportError)
+
+
+def test_injected_embedder_needs_no_extra(monkeypatch) -> None:
+    """The documented workaround must actually work with the extra absent."""
+    import builtins
+
+    real_import = builtins.__import__
+
+    def no_sentence_transformers(name, *args, **kwargs):
+        if name.startswith("sentence_transformers"):
+            raise ImportError("nope")
+        return real_import(name, *args, **kwargs)
+
+    monkeypatch.setattr(builtins, "__import__", no_sentence_transformers)
+
+    result = DuplicateCheck(embedder=bag_of_words).run(make_set(["x y", "x y", "q r"]))
+
+    assert result.stats["n_clusters"] == 1

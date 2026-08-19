@@ -1,6 +1,6 @@
 """Anthropic transport, shared by the demo backends.
 
-NOT part of the shipped library — `src/evalcheck` never imports a provider SDK.
+NOT part of the shipped library — `src/evallint` never imports a provider SDK.
 
 Extracted for the same reason as `_cache.py`: two copies of a request builder
 drift, and the per-model quirks encoded here are exactly the kind that fail at

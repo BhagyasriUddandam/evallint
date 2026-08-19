@@ -45,7 +45,7 @@ def render_text(
     console = console or Console()
 
     console.print()
-    console.print(Text("evalcheck", style="bold") + Text(f"  {source}", style="dim"))
+    console.print(Text("evallint", style="bold") + Text(f"  {source}", style="dim"))
 
     for result in results:
         console.print()

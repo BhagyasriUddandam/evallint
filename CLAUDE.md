@@ -1,4 +1,4 @@
-# CLAUDE.md — evalcheck
+# CLAUDE.md — evallint
 
 ## Who I am
 Bhagya Sri Uddandam, sole builder. MacBook M4 Pro (arm64). I need to genuinely understand
@@ -6,7 +6,7 @@ this code for interviews. Explain non-obvious decisions in plain language as you
 Never hand me code I can't explain.
 
 ## What this is
-evalcheck: a CLI tool + library that audits LLM eval DATASETS for flaws that make
+evallint: a CLI tool + library that audits LLM eval DATASETS for flaws that make
 evaluations silently lie. Read SPEC.md for the full design before doing anything.
 
 It is NOT an eval runner. It does not compete with promptfoo/DeepEval. It audits the set.

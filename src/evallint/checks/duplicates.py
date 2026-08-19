@@ -23,7 +23,21 @@ import numpy as np
 from ..schema import EvalSet
 from .base import Check, CheckResult, Finding
 
-__all__ = ["DEFAULT_MODEL", "DEFAULT_THRESHOLD", "DuplicateCheck", "Embedder"]
+__all__ = [
+    "DEFAULT_MODEL",
+    "DEFAULT_THRESHOLD",
+    "DuplicateCheck",
+    "Embedder",
+    "MissingEmbeddingsError",
+]
+
+
+class MissingEmbeddingsError(ImportError):
+    """The default embedder was requested but its optional extra is absent.
+
+    Subclasses ImportError so `except ImportError` still catches it, while
+    giving callers something specific to branch on.
+    """
 
 Embedder = Callable[[Sequence[str]], np.ndarray]
 
@@ -172,7 +186,13 @@ class DuplicateCheck(Check):
         return Finding(message, case_ids=case_ids)
 
     def _similarity_matrix(self, texts: list[str]) -> np.ndarray:
-        vectors = np.asarray(self._get_embedder()(texts), dtype=np.float64)
+        # float32, not float64. The output is an n x n matrix, so precision is
+        # the single biggest lever on how large an eval set fits in memory:
+        # at n=10,000 the matrix alone is 800MB at float64 and 400MB at float32.
+        # float32 carries ~7 significant digits, and this is compared against a
+        # threshold quoted to two decimal places (0.85) and reported to four, so
+        # the precision is irrelevant while the memory is not.
+        vectors = np.asarray(self._get_embedder()(texts), dtype=np.float32)
         if vectors.ndim != 2 or vectors.shape[0] != len(texts):
             raise ValueError(
                 f"embedder must return one vector per text: expected "
@@ -189,11 +209,28 @@ class DuplicateCheck(Check):
     def _get_embedder(self) -> Embedder:
         """Build the default model on first use, not at import time.
 
-        Loading sentence-transformers costs seconds and ~90MB on disk. A user
-        running only the imbalance check should never pay for it.
+        Two reasons this is lazy rather than a module-level import:
+          - Loading sentence-transformers costs seconds and ~90MB of model
+            weights. A user running only the imbalance check never pays it.
+          - sentence-transformers is an OPTIONAL extra, because it pulls in
+            torch. Importing it at module scope would make `import evallint`
+            fail for everyone who installed the core package, which is most
+            users. Here, the cost lands only on the code path that needs it.
         """
         if self._embedder is None:
-            from sentence_transformers import SentenceTransformer
+            try:
+                from sentence_transformers import SentenceTransformer
+            except ImportError as exc:
+                raise MissingEmbeddingsError(
+                    "The duplicate check needs sentence-transformers, which is "
+                    "an optional extra because it pulls in torch (~2GB).\n\n"
+                    "    pip install 'evallint[embeddings]'\n\n"
+                    "Alternatively, pass your own embedder — "
+                    "DuplicateCheck(embedder=my_fn) takes any callable mapping "
+                    "a sequence of strings to a 2-D array, so no extra is "
+                    "needed. Or skip this check entirely: "
+                    "`evallint --skip-duplicates PATH`."
+                ) from exc
 
             model = SentenceTransformer(self.model_name)
             self._embedder = lambda texts: model.encode(

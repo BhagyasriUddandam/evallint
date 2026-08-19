@@ -11,8 +11,8 @@ from __future__ import annotations
 import numpy as np
 import pytest
 
-from evalcheck.checks import DiscriminationCheck, ScorerError, Severity
-from evalcheck.schema import EvalCase, EvalSet
+from evallint.checks import DiscriminationCheck, ScorerError, Severity
+from evallint.schema import EvalCase, EvalSet
 
 WEAK, STRONG = "weak-model", "strong-model"
 
@@ -372,3 +372,328 @@ def test_result_states_the_cost_and_the_model_pair_caveat() -> None:
     assert any("costs time and money" in lim for lim in result.limitations)
     assert any("model pair you chose" in lim for lim in result.limitations)
     assert any("not automatically a bad case" in lim for lim in result.limitations)
+
+
+def test_result_warns_that_a_single_run_may_not_reproduce() -> None:
+    """The check emits a single-run number. Measured on the bundled example set,
+    40% of per-case verdicts flip across identical repeats — so a result that
+    did not say so would be exactly the kind of quiet lie this tool exists to
+    catch."""
+    eval_set, scorer = from_pattern({"a": (False, True)})
+    result = DiscriminationCheck(scorer, [WEAK, STRONG]).run(eval_set)
+
+    text = " ".join(result.limitations)
+    assert "SINGLE-RUN MEASUREMENT" in text
+    assert "three times" in text
+    assert "sampling noise, not a finding" in text
+
+
+def test_limitations_do_not_claim_temperature_zero_is_available() -> None:
+    """An earlier version advised 'score at temperature 0'. That is impossible
+    on Claude Opus 5 / Sonnet 5, which reject the parameter."""
+    eval_set, scorer = from_pattern({"a": (False, True)})
+    result = DiscriminationCheck(scorer, [WEAK, STRONG]).run(eval_set)
+
+    text = " ".join(result.limitations)
+    assert "reject the temperature parameter" in text
+    assert "Score at temperature 0, or repeat" not in text
+
+
+# --------------------------------------------------------------------------
+# repeats: detecting verdicts that are not reproducible
+# --------------------------------------------------------------------------
+
+
+def flaky_scorer(schedule: dict[tuple[str, str], list[bool]]):
+    """A scorer returning a different answer on each successive call.
+
+    schedule maps (case_id, model) -> the verdicts to return in order.
+    """
+    calls: dict[tuple[str, str], int] = {}
+
+    def scorer(case: EvalCase, model: str) -> bool:
+        key = (case.id, model)
+        i = calls.get(key, 0)
+        calls[key] = i + 1
+        seq = schedule[key]
+        return seq[min(i, len(seq) - 1)]
+
+    return scorer
+
+
+def test_repeats_defaults_to_one_and_changes_nothing() -> None:
+    """Backwards compatibility: the old single-run numbers are unchanged."""
+    eval_set, scorer = from_pattern(
+        {"a": (False, True), "b": (True, True), "c": (False, False)}
+    )
+    result = DiscriminationCheck(scorer, [WEAK, STRONG]).run(eval_set)
+
+    assert result.stats["repeats"] == 1
+    assert result.stats["n_unstable"] == 0
+    assert result.stats["n_measured"] == 3
+    assert result.stats["n_scorer_calls"] == 6
+
+
+def test_a_flipping_case_is_reported_unstable_not_inverted() -> None:
+    """The whole point: a verdict that changes between identical runs must not
+    be counted as a finding."""
+    eval_set = make_set(["steady", "flaky"])
+    scorer = flaky_scorer(
+        {
+            ("steady", WEAK): [False],
+            ("steady", STRONG): [True],
+            ("flaky", WEAK): [True, False, True],  # flips
+            ("flaky", STRONG): [False],
+        }
+    )
+
+    result = DiscriminationCheck(scorer, [WEAK, STRONG], repeats=3).run(eval_set)
+
+    assert result.stats["unstable_case_ids"] == ["flaky"]
+    assert result.stats["n_unstable"] == 1
+    assert result.stats["n_measured"] == 1
+    assert result.stats["inverted_case_ids"] == [], (
+        "a flipping case must not be reported as an inversion"
+    )
+    assert "flaky" not in result.stats["ceiling_case_ids"]
+    assert "flaky" not in result.stats["floor_case_ids"]
+
+
+def test_unstable_cases_are_warned_about_first() -> None:
+    """If verdicts are not reproducible, every other number is provisional, so
+    that has to be the first thing the reader sees."""
+    eval_set = make_set(["flaky"])
+    scorer = flaky_scorer(
+        {("flaky", WEAK): [True, False], ("flaky", STRONG): [True]}
+    )
+
+    result = DiscriminationCheck(scorer, [WEAK, STRONG], repeats=2).run(eval_set)
+
+    assert "gave a DIFFERENT verdict" in result.findings[0].message
+    assert result.findings[0].case_ids == ("flaky",)
+    assert result.findings[0].severity is Severity.WARNING
+
+
+def test_a_stable_case_survives_repeats() -> None:
+    """Repeats must not invent instability where there is none."""
+    eval_set, scorer = from_pattern({"a": (False, True), "b": (True, True)})
+
+    result = DiscriminationCheck(scorer, [WEAK, STRONG], repeats=5).run(eval_set)
+
+    assert result.stats["n_unstable"] == 0
+    assert result.stats["n_measured"] == 2
+    assert result.stats["ceiling_case_ids"] == ["b"]
+    assert result.stats["n_discriminating"] == 1
+
+
+def test_share_denominator_excludes_unstable_cases() -> None:
+    """An unstable case is unknown, not discriminating. Counting it either way
+    would flatter or slander the eval set."""
+    eval_set = make_set(["easy", "flaky"])
+    scorer = flaky_scorer(
+        {
+            ("easy", WEAK): [True],
+            ("easy", STRONG): [True],           # stable ceiling
+            ("flaky", WEAK): [True, False],     # flips
+            ("flaky", STRONG): [True],
+        }
+    )
+
+    result = DiscriminationCheck(scorer, [WEAK, STRONG], repeats=2).run(eval_set)
+
+    # 1 of 1 MEASURED case is non-discriminating -> 100%, not 50% of all cases.
+    assert result.stats["n_measured"] == 1
+    assert result.stats["non_discriminating_share"] == 1.0
+    assert "1/1" in messages(result)
+    assert "measured cases" in messages(result)
+
+
+def test_scorer_call_count_multiplies_by_repeats() -> None:
+    """Cost scales with repeats, and the stat must say so honestly."""
+    calls = []
+
+    def counting(case: EvalCase, model: str) -> bool:
+        calls.append((case.id, model))
+        return model == STRONG
+
+    result = DiscriminationCheck(counting, [WEAK, STRONG], repeats=3).run(
+        make_set(["a", "b"])
+    )
+
+    assert len(calls) == 12  # 2 cases x 2 models x 3 repeats
+    assert result.stats["n_scorer_calls"] == 12
+
+
+def test_summary_mentions_repeats_and_instability() -> None:
+    eval_set = make_set(["flaky"])
+    scorer = flaky_scorer(
+        {("flaky", WEAK): [True, False], ("flaky", STRONG): [True]}
+    )
+
+    result = DiscriminationCheck(scorer, [WEAK, STRONG], repeats=2).run(eval_set)
+
+    assert "x 2 repeats" in result.summary
+    assert "1 not reproducible" in result.summary
+
+
+def test_everything_unstable_says_it_measured_nothing() -> None:
+    eval_set = make_set(["flaky"])
+    scorer = flaky_scorer(
+        {("flaky", WEAK): [True, False], ("flaky", STRONG): [False, True]}
+    )
+
+    result = DiscriminationCheck(scorer, [WEAK, STRONG], repeats=2).run(eval_set)
+
+    assert result.stats["n_measured"] == 0
+    assert result.stats["non_discriminating_share"] == 0.0
+    assert "measured nothing" in messages(result)
+
+
+@pytest.mark.parametrize("repeats", [0, -1])
+def test_nonsense_repeats_is_rejected(repeats: int) -> None:
+    with pytest.raises(ValueError, match="repeats must be at least 1"):
+        DiscriminationCheck(lambda c, m: True, [WEAK, STRONG], repeats=repeats)
+
+
+def test_pass_rate_averages_across_repeats() -> None:
+    """With disagreeing repeats, a mean is the only honest summary."""
+    eval_set = make_set(["flaky"])
+    scorer = flaky_scorer(
+        {("flaky", WEAK): [True, False], ("flaky", STRONG): [True]}
+    )
+
+    result = DiscriminationCheck(scorer, [WEAK, STRONG], repeats=2).run(eval_set)
+
+    assert result.stats["per_model_pass_rate"][WEAK] == 0.5   # 1 of 2 calls
+    assert result.stats["per_model_pass_rate"][STRONG] == 1.0
+
+
+# --------------------------------------------------------------------------
+# max_workers: concurrency for an I/O-bound scorer
+# --------------------------------------------------------------------------
+
+
+def test_max_workers_defaults_to_serial() -> None:
+    eval_set, scorer = from_pattern({"a": (False, True)})
+    result = DiscriminationCheck(scorer, [WEAK, STRONG]).run(eval_set)
+
+    assert result.stats["max_workers"] == 1
+
+
+def test_concurrency_actually_runs_calls_in_parallel() -> None:
+    """A sleeping scorer stands in for an API call. If the pool is working,
+    wall-clock time is a fraction of the serial total."""
+    import time
+
+    eval_set = make_set([f"c{i}" for i in range(16)])
+
+    def slow(case: EvalCase, model: str) -> bool:
+        time.sleep(0.05)
+        return model == STRONG
+
+    serial_total = 16 * 2 * 0.05  # 1.6s
+
+    t0 = time.perf_counter()
+    DiscriminationCheck(slow, [WEAK, STRONG], max_workers=8).run(eval_set)
+    elapsed = time.perf_counter() - t0
+
+    assert elapsed < serial_total / 3, (
+        f"expected well under {serial_total / 3:.2f}s with 8 workers, got {elapsed:.2f}s"
+    )
+
+
+def test_concurrent_and_serial_produce_identical_results() -> None:
+    """Concurrency must not change a single number, only the wall clock."""
+    pattern = {
+        "a": (False, True),
+        "b": (True, True),
+        "c": (False, False),
+        "d": (True, False),
+        "e": (False, True),
+    }
+    eval_set, scorer = from_pattern(pattern)
+
+    serial = DiscriminationCheck(scorer, [WEAK, STRONG]).run(eval_set)
+    eval_set2, scorer2 = from_pattern(pattern)
+    concurrent = DiscriminationCheck(scorer2, [WEAK, STRONG], max_workers=8).run(
+        eval_set2
+    )
+
+    ignore = {"max_workers"}
+    assert {k: v for k, v in serial.stats.items() if k not in ignore} == {
+        k: v for k, v in concurrent.stats.items() if k not in ignore
+    }
+    assert serial.summary == concurrent.summary
+
+
+def test_verdicts_are_assembled_in_order_not_completion_order() -> None:
+    """Workers finish out of order. If results were collected as they arrived,
+    a case's verdicts would be attached to the wrong model."""
+    import time
+
+    eval_set = make_set(["a", "b", "c", "d"])
+
+    def scorer(case: EvalCase, model: str) -> bool:
+        # The WEAK model is slower, so its results land last despite being
+        # submitted first. Ordering must come from submission, not completion.
+        time.sleep(0.03 if model == WEAK else 0.0)
+        return model == STRONG
+
+    result = DiscriminationCheck(scorer, [WEAK, STRONG], max_workers=8).run(eval_set)
+
+    assert result.stats["per_model_pass_rate"] == {WEAK: 0.0, STRONG: 1.0}
+    assert result.stats["n_discriminating"] == 4
+
+
+def test_concurrent_failure_reports_the_same_case_as_serial_would() -> None:
+    """Whichever thread fails first, the reported case must be deterministic —
+    otherwise the error message depends on scheduling and is unreproducible."""
+    import time
+
+    eval_set = make_set(["a", "b", "c", "d"])
+
+    def scorer(case: EvalCase, model: str) -> bool:
+        if case.id == "d":
+            raise RuntimeError("late failure")
+        if case.id == "b":
+            time.sleep(0.05)  # b finishes after d has already blown up
+            raise RuntimeError("early-submitted failure")
+        return True
+
+    for workers in (1, 8):
+        with pytest.raises(ScorerError) as excinfo:
+            DiscriminationCheck(scorer, [WEAK, STRONG], max_workers=workers).run(
+                eval_set
+            )
+        assert "case 'b'" in str(excinfo.value), (
+            f"max_workers={workers} reported the wrong case"
+        )
+
+
+def test_repeats_and_workers_compose() -> None:
+    eval_set, scorer = from_pattern({"a": (False, True), "b": (True, True)})
+
+    result = DiscriminationCheck(
+        scorer, [WEAK, STRONG], repeats=3, max_workers=4
+    ).run(eval_set)
+
+    assert result.stats["n_scorer_calls"] == 12  # 2 cases x 2 models x 3 repeats
+    assert result.stats["n_unstable"] == 0
+    assert result.stats["max_workers"] == 4
+
+
+@pytest.mark.parametrize("workers", [0, -1])
+def test_nonsense_max_workers_is_rejected(workers: int) -> None:
+    with pytest.raises(ValueError, match="max_workers must be at least 1"):
+        DiscriminationCheck(lambda c, m: True, [WEAK, STRONG], max_workers=workers)
+
+
+def test_thread_safety_requirement_is_stated_in_the_limitations() -> None:
+    """evallint cannot verify the user's scorer is thread-safe, so it must say
+    so rather than let an unsafe scorer corrupt results quietly."""
+    eval_set, scorer = from_pattern({"a": (False, True)})
+    result = DiscriminationCheck(scorer, [WEAK, STRONG], max_workers=4).run(eval_set)
+
+    text = " ".join(result.limitations)
+    assert "thread-safe" in text
+    assert "corrupts results quietly" in text

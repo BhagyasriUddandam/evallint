@@ -1,4 +1,4 @@
-# evalcheck — Project Spec
+# evallint — Project Spec
 
 ## One-line
 A tool that audits LLM eval datasets for the flaws that make evaluations silently lie to you.
@@ -51,8 +51,8 @@ Same philosophy as before: modular, tested, reproducible, readable. NO database,
 server, no heavy framework — it is a CLI tool + library. That restraint is the signal.
 
 ```
-evalcheck/
-  src/evalcheck/
+evallint/
+  src/evallint/
     __init__.py
     io.py              # load an eval set from JSON/CSV/JSONL into a common internal format
     schema.py          # the internal EvalCase / EvalSet dataclasses + validation
@@ -63,7 +63,7 @@ evalcheck/
       duplicates.py
       imbalance.py
     report.py          # aggregate CheckResults into a readable report (text + optional JSON)
-    cli.py             # `evalcheck path/to/evalset.jsonl` entrypoint
+    cli.py             # `evallint path/to/evalset.jsonl` entrypoint
   tests/
     test_io.py
     test_duplicates.py     # e.g. two identical inputs are flagged; distinct ones are not
@@ -92,7 +92,7 @@ Each check gets a test proving it fires on a known-bad input and stays quiet on 
 one. The `examples/sample_evalset.jsonl` doubles as a live demo and a fixture.
 
 ## v1 definition of done
-- `evalcheck examples/sample_evalset.jsonl` runs all three checks and prints a clean report.
+- `evallint examples/sample_evalset.jsonl` runs all three checks and prints a clean report.
 - `pytest` green.
 - README with the pitch, install, usage, an example report, and an honest "what this does
   NOT do" section.

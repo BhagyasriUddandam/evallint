@@ -1,17 +1,56 @@
 [project]
-name = "evalcheck"
+name = "evallint"
 version = "0.1.0"
 description = "Audits LLM eval datasets for the flaws that make evaluations silently lie."
+readme = "README.md"
 requires-python = ">=3.12"
-# Lower bounds here, exact versions in uv.lock. The lockfile is what makes an
-# environment reproducible (`uv sync`); pinning transitive deps in this list
-# instead would make evalcheck refuse to co-install alongside anything else.
+license = "MIT"
+license-files = ["LICENSE"]
+authors = [{ name = "Bhagya Sri Uddandam" }]
+keywords = [
+    "llm",
+    "evaluation",
+    "eval",
+    "dataset",
+    "data-quality",
+    "testing",
+    "linter",
+    "machine-learning",
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3 :: Only",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Software Development :: Quality Assurance",
+    "Topic :: Software Development :: Testing",
+    "Typing :: Typed",
+]
+
+# Lower bounds here, exact versions in uv.lock. The lockfile is what makes a
+# development environment reproducible (`uv sync`); pinning transitive deps in
+# this list instead would make evallint refuse to co-install alongside anything
+# else in a user's project.
+#
+# sentence-transformers is deliberately NOT here — see [optional-dependencies].
 dependencies = [
     "numpy>=2.0",
-    "sentence-transformers>=3.0",
     "click>=8.1",
     "rich>=13.7",
 ]
+
+[project.optional-dependencies]
+# The duplicate check needs sentence-transformers, which pulls in torch (~2GB).
+# Making that a hard dependency would mean every user downloads torch even if
+# they only want class-imbalance stats — the single biggest barrier to trying
+# the tool. The check raises MissingEmbeddingsError with install instructions
+# if it is used without this extra, and DuplicateCheck(embedder=...) works
+# without it at all.
+embeddings = ["sentence-transformers>=3.0"]
 
 # A dependency-group, not an optional-dependency extra. uv installs default
 # groups on a plain `uv sync`, so `uv sync && uv run pytest` works on a fresh
@@ -19,23 +58,49 @@ dependencies = [
 # silently UNINSTALL pytest. pytest is also not part of the published package,
 # which is exactly what dependency-groups are for.
 [dependency-groups]
-# anthropic is here, NOT in [project.dependencies], because only the one-off
-# scripts/demo_discrimination_real.py uses it. The shipped library never
-# imports a provider SDK — that is the whole point of the injected scorer.
-# anthropic backs scripts/demo_discrimination_real.py; httpx backs
-# scripts/local_scorer.py (Ollama HTTP API). httpx is declared explicitly
-# rather than leaned on as an anthropic transitive dep.
-dev = ["pytest>=8.0", "anthropic>=0.69", "httpx>=0.27"]
+# sentence-transformers is here as well as in the extra: the test suite has two
+# end-to-end tests against the real embedding model, and a dev environment that
+# skipped them would hide real breakage.
+#
+# anthropic and httpx back the demo scorer backends in scripts/ only. The
+# shipped library never imports a provider SDK — that is the whole point of the
+# injected scoring function.
+dev = [
+    "pytest>=8.0",
+    "sentence-transformers>=3.0",
+    "anthropic>=0.69",
+    "httpx>=0.27",
+    "twine>=5.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/BhagyasriUddandam/evallint"
+Repository = "https://github.com/BhagyasriUddandam/evallint"
+Issues = "https://github.com/BhagyasriUddandam/evallint/issues"
+Changelog = "https://github.com/BhagyasriUddandam/evallint/blob/main/CHANGELOG.md"
 
 [project.scripts]
-evalcheck = "evalcheck.cli:main"
+evallint = "evallint.cli:main"
 
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [tool.hatch.build.targets.wheel]
-packages = ["src/evalcheck"]
+packages = ["src/evallint"]
+
+[tool.hatch.build.targets.sdist]
+# Ship the tests and the example set in the source distribution so a packager
+# can verify the build; leave out the scratch caches and personal notes.
+include = [
+    "src/",
+    "tests/",
+    "examples/",
+    "README.md",
+    "LICENSE",
+    "CHANGELOG.md",
+    "pyproject.toml",
+]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

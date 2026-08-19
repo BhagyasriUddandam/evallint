@@ -1,7 +1,7 @@
 #!/usr/bin/env python
 """One-off validation: run Check 1 against REAL models.
 
-NOT part of the shipped library. Nothing in src/evalcheck imports this, and
+NOT part of the shipped library. Nothing in src/evallint imports this, and
 this file imports the discrimination check without modifying it — which is the
 point. The check never learns that Anthropic exists; it only ever sees a
 `score(case, model) -> bool` callable. Swapping the two functions below for
@@ -48,8 +48,8 @@ from _anthropic_backend import (  # noqa: E402
 )
 from _cache import ResponseCache, cache_key  # noqa: E402
 from _env import DEFAULT_ENV_PATH, load_env_file  # noqa: E402
-from evalcheck.checks import DiscriminationCheck, ScorerError  # noqa: E402
-from evalcheck.io import load  # noqa: E402
+from evallint.checks import DiscriminationCheck, ScorerError  # noqa: E402
+from evallint.io import load  # noqa: E402
 
 # Ordered WEAKEST FIRST — the check uses that ordering to detect inversions,
 # so getting it backwards would invert the finding rather than raise.
@@ -222,7 +222,7 @@ def build_scorer(
 ):
     """Return the `score(case, model) -> bool` the check consumes.
 
-    This closure is the entire integration surface. evalcheck calls it once per
+    This closure is the entire integration surface. evallint calls it once per
     case per model and interprets only the bool it returns.
 
     ``answer_system`` is passed in rather than read from a module global so the

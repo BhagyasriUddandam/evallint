@@ -22,13 +22,14 @@ the same data and is worth more than either:
             usually means a bad reference answer or a grader artefact.
 
 The scorer is injected. That is the single most important design choice in the
-tool: evalcheck never talks to a model provider, so it works with anyone's
+tool: evallint never talks to a model provider, so it works with anyone's
 stack and the tests need no API key.
 """
 
 from __future__ import annotations
 
 from collections.abc import Callable, Sequence
+from concurrent.futures import ThreadPoolExecutor
 from typing import Any
 
 from ..schema import EvalCase, EvalSet
@@ -53,9 +54,24 @@ LIMITATIONS = (
     "where the strong model scores 0.95 and the weak one 0.55 is recorded as "
     "non-discriminating. Use a binary scorer, or move the threshold, if that "
     "distinction matters to you.",
-    "Model outputs are usually sampled, so with temperature above 0 a case can "
-    "flip between runs. Score at temperature 0, or repeat the run, before "
-    "acting on any single case listed here.",
+    "Model outputs are usually sampled, so a case can flip between runs. Note "
+    "that temperature=0 is NOT always available: current frontier models "
+    "including Claude Opus 5 and Sonnet 5 reject the temperature parameter "
+    "outright, so determinism may not be an option for your model pair.",
+    "With max_workers above 1 the scorer is called from multiple threads. "
+    "evallint cannot verify that your scorer is thread-safe, and an unsafe one "
+    "corrupts results quietly rather than crashing. If a run at max_workers>1 "
+    "disagrees with a serial run on the same data, suspect the scorer before "
+    "the eval set.",
+    "THIS IS A SINGLE-RUN MEASUREMENT AND MAY NOT REPRODUCE. Every number "
+    "above comes from scoring each case exactly once. On the author's own "
+    "20-case example set, repeating an identical run three times changed the "
+    "verdict for 8 of 20 cases (40%), and only 1 of the inversions found in a "
+    "single run survived all three repeats. Before reporting any figure here "
+    "-- especially a specific inverted or floor case -- run the same "
+    "configuration at least three times and keep only the cases whose verdict "
+    "is identical every time. A case that flips is sampling noise, not a "
+    "finding.",
 )
 
 
@@ -76,18 +92,44 @@ class DiscriminationCheck(Check):
         *,
         pass_threshold: float = 0.5,
         max_non_discriminating_share: float = 0.5,
+        repeats: int = 1,
+        max_workers: int = 1,
     ) -> None:
         """
         Args:
             scorer: ``scorer(case, model) -> bool | float``. Returns whether
                 the model got this case right, or a score compared against
-                ``pass_threshold``. evalcheck never calls a provider itself.
+                ``pass_threshold``. evallint never calls a provider itself.
             models: Two or more model identifiers ordered WEAKEST FIRST. The
                 order is what makes inversion detectable, so getting it
                 backwards inverts that finding — see the limitations.
             pass_threshold: A float score >= this counts as a pass. Ignored
                 for bool scorers.
-            max_non_discriminating_share: Warn above this share of cases.
+            max_non_discriminating_share: Warn above this share of MEASURED
+                cases (unstable cases are excluded from the denominator).
+            repeats: How many times to score each (case, model). A case whose
+                verdict is not unanimous across repeats is reported as
+                UNSTABLE and excluded from the ceiling/floor/inverted counts,
+                because a verdict that changes between identical runs is
+                sampling noise rather than a property of the eval set.
+
+                Default 1 preserves single-run behaviour and cost, but 1 also
+                cannot detect instability at all. On the bundled 20-case
+                example, 3 repeats found 40% of verdicts non-reproducible, so
+                a single run there was measuring almost nothing reliably.
+                Cost multiplies by ``repeats``.
+            max_workers: How many scorer calls to run concurrently. Scoring is
+                almost always I/O-bound (an API call per case per model), and
+                running it serially is the difference between minutes and hours:
+                1000 cases x 2 models x 3 repeats at 2s per call is 3.3 hours
+                serial, roughly 15 minutes at 16 workers.
+
+                Default 1 runs serially and takes a code path with no threads in
+                it at all. That is deliberate: YOUR SCORER MUST BE THREAD-SAFE
+                to raise this above 1. evallint cannot check that for you — the
+                scorer is your code, and a client object, a shared session, a
+                file handle or a non-locking cache inside it will corrupt
+                quietly rather than crash. Opt in once you have checked.
         """
         if len(models) < 2:
             raise ValueError(
@@ -99,52 +141,106 @@ class DiscriminationCheck(Check):
             raise ValueError(f"model names must be unique, got {labels}")
         if not 0 < max_non_discriminating_share <= 1:
             raise ValueError("max_non_discriminating_share must be between 0 and 1")
+        if repeats < 1:
+            raise ValueError(f"repeats must be at least 1, got {repeats}")
+        if max_workers < 1:
+            raise ValueError(f"max_workers must be at least 1, got {max_workers}")
         self.scorer = scorer
         self.models = tuple(models)
         self.model_names = tuple(labels)
         self.pass_threshold = pass_threshold
         self.max_non_discriminating_share = max_non_discriminating_share
+        self.repeats = repeats
+        self.max_workers = max_workers
 
     def run(self, eval_set: EvalSet) -> CheckResult:
         cases = list(eval_set)
-        verdicts = {case.id: self._verdicts_for(case) for case in cases}
+        # runs[case.id][model_index] -> tuple of `repeats` verdicts
+        runs = self._score_all(cases)
 
-        ceiling = [c.id for c in cases if all(verdicts[c.id])]
-        floor = [c.id for c in cases if not any(verdicts[c.id])]
-        inverted = [c.id for c in cases if _is_inverted(verdicts[c.id])]
+        # A case is only measurable if every model gave the same answer on
+        # every repeat. Anything else is a verdict that changes between
+        # identical runs, which is noise — folding it into ceiling/floor/
+        # inverted would report sampling variance as a property of the data.
+        stable: dict[str, tuple[bool, ...]] = {}
+        unstable: list[str] = []
+        for case in cases:
+            per_model = runs[case.id]
+            if all(len(set(r)) == 1 for r in per_model):
+                stable[case.id] = tuple(r[0] for r in per_model)
+            else:
+                unstable.append(case.id)
+
+        ceiling = [c.id for c in cases if c.id in stable and all(stable[c.id])]
+        floor = [c.id for c in cases if c.id in stable and not any(stable[c.id])]
+        inverted = [
+            c.id for c in cases if c.id in stable and _is_inverted(stable[c.id])
+        ]
         non_discriminating = len(ceiling) + len(floor)
         n_cases = len(cases)
-        share = non_discriminating / n_cases
+        n_measured = len(stable)
+        # Denominator is MEASURED cases, not all cases: an unstable case is
+        # unknown, not discriminating, and counting it as either would flatter
+        # or slander the eval set. With repeats=1 nothing can be unstable, so
+        # this is identical to the old behaviour.
+        share = non_discriminating / n_measured if n_measured else 0.0
 
         stats = {
             "n_cases": n_cases,
             "models": list(self.model_names),
-            "n_scorer_calls": n_cases * len(self.models),
+            "repeats": self.repeats,
+            "max_workers": self.max_workers,
+            "n_scorer_calls": n_cases * len(self.models) * self.repeats,
             "pass_threshold": self.pass_threshold,
-            "n_discriminating": n_cases - non_discriminating,
+            "n_measured": n_measured,
+            "n_unstable": len(unstable),
+            "n_discriminating": n_measured - non_discriminating,
             "n_non_discriminating": non_discriminating,
             "non_discriminating_share": share,
-            "effective_n_cases": n_cases - non_discriminating,
+            "effective_n_cases": n_measured - non_discriminating,
             "n_ceiling": len(ceiling),
             "n_floor": len(floor),
             "n_inverted": len(inverted),
+            # Mean pass rate across every call, so it stays meaningful when
+            # verdicts disagree between repeats.
             "per_model_pass_rate": {
-                name: sum(verdicts[c.id][i] for c in cases) / n_cases
+                name: sum(sum(runs[c.id][i]) for c in cases)
+                / (n_cases * self.repeats)
                 for i, name in enumerate(self.model_names)
             },
             "ceiling_case_ids": ceiling,
             "floor_case_ids": floor,
             "inverted_case_ids": inverted,
+            "unstable_case_ids": unstable,
         }
 
         findings: list[Finding] = []
-        if share > self.max_non_discriminating_share:
+        if unstable:
+            # First, and a WARNING: if verdicts are not reproducible then every
+            # other number here is provisional, so this must be read before them.
             findings.append(
                 Finding(
-                    f"{share:.0%} of cases ({non_discriminating}/{n_cases}) give "
-                    f"every model the same verdict, so they carry no evidence "
-                    f"about which model is better. This eval discriminates like "
-                    f"a {n_cases - non_discriminating}-case set"
+                    f"{len(unstable)} of {n_cases} cases gave a DIFFERENT verdict "
+                    f"across {self.repeats} identical runs, so they cannot be "
+                    f"classified and are excluded from the counts below. A verdict "
+                    f"that changes between runs is sampling noise, not a property "
+                    f"of the eval set — the remaining figures describe only the "
+                    f"{n_measured} reproducible cases",
+                    case_ids=tuple(unstable),
+                )
+            )
+        if share > self.max_non_discriminating_share:
+            # Say "measured cases" only when some were actually excluded. With
+            # nothing excluded the qualifier is noise; with cases excluded,
+            # plain "of cases" would imply a denominator that isn't the one used.
+            scope = "measured cases" if unstable else "cases"
+            findings.append(
+                Finding(
+                    f"{share:.0%} of {scope} ({non_discriminating}/{n_measured}) "
+                    f"give every model the same verdict, so they carry no "
+                    f"evidence about which model is better. This eval "
+                    f"discriminates like a {n_measured - non_discriminating}-case "
+                    f"set"
                 )
             )
         if ceiling:
@@ -180,12 +276,14 @@ class DiscriminationCheck(Check):
                     case_ids=tuple(inverted),
                 )
             )
-        findings.extend(self._sanity_findings(stats, non_discriminating, n_cases))
+        findings.extend(self._sanity_findings(stats, non_discriminating, n_measured))
 
         summary = (
-            f"{n_cases} cases x {len(self.models)} models: "
-            f"{n_cases - non_discriminating} discriminate, "
+            f"{n_cases} cases x {len(self.models)} models"
+            + (f" x {self.repeats} repeats" if self.repeats > 1 else "")
+            + f": {n_measured - non_discriminating} discriminate, "
             f"{non_discriminating} do not ({share:.0%})"
+            + (f", {len(unstable)} not reproducible" if unstable else "")
         )
         return CheckResult(
             check=self.name,
@@ -217,16 +315,91 @@ class DiscriminationCheck(Check):
                     case_ids=(),
                 )
             )
-        if non_discriminating == n_cases:
+        if n_cases and non_discriminating == n_cases:
+            # Same rule as the share finding: name the narrowed scope only when
+            # the scope was actually narrowed.
+            scope = "no measured case" if stats["n_unstable"] else "no case"
             findings.append(
                 Finding(
-                    "no case separated these models at all. They may be closer "
+                    f"{scope} separated these models at all. They may be closer "
                     "in capability than assumed, or the scorer may not be "
                     "sensitive enough to tell them apart",
                     severity=Severity.INFO,
                 )
             )
+        if not n_cases:
+            findings.append(
+                Finding(
+                    "not one case produced a reproducible verdict, so this run "
+                    "measured nothing. Either the scorer is highly "
+                    "non-deterministic or the two models are indistinguishable "
+                    "on this data",
+                    severity=Severity.INFO,
+                )
+            )
         return findings
+
+    def _score_all(
+        self, cases: list[EvalCase]
+    ) -> dict[str, tuple[tuple[bool, ...], ...]]:
+        """Every (case, model, repeat) verdict, keyed by case id.
+
+        The unit of work is one scorer call, not one case, because a case with
+        two models and three repeats is six independent I/O-bound calls and
+        there is no reason for them to wait on each other.
+
+        ``max_workers == 1`` takes a plainly serial path rather than a pool of
+        one: it keeps the default free of thread-pool semantics entirely, so a
+        user whose scorer is not thread-safe is unaffected unless they opt in.
+        """
+        tasks = [
+            (case, model_index, model, name, repeat)
+            for case in cases
+            for model_index, (model, name) in enumerate(
+                zip(self.models, self.model_names, strict=True)
+            )
+            for repeat in range(self.repeats)
+        ]
+
+        if self.max_workers == 1:
+            outcomes: list[bool | BaseException] = []
+            for case, _, model, name, _ in tasks:
+                # Serial path fails fast, exactly as it always has.
+                outcomes.append(self._score_one(case, model, name))
+        else:
+            with ThreadPoolExecutor(max_workers=self.max_workers) as pool:
+                futures = [
+                    pool.submit(self._score_one, case, model, name)
+                    for case, _, model, name, _ in tasks
+                ]
+                # Collect everything, including failures, before deciding what
+                # to raise. Raising from whichever thread happened to finish
+                # first would make the error message depend on scheduling.
+                outcomes = []
+                for future in futures:
+                    try:
+                        outcomes.append(future.result())
+                    except BaseException as exc:  # noqa: BLE001 - re-raised below
+                        outcomes.append(exc)
+
+            for outcome in outcomes:
+                if isinstance(outcome, BaseException):
+                    # Task order is submission order, so the reported failure is
+                    # the same one the serial path would have hit.
+                    raise outcome
+
+        runs: dict[str, list[list[bool]]] = {
+            case.id: [[] for _ in self.models] for case in cases
+        }
+        for (case, model_index, _, _, _), outcome in zip(
+            tasks, outcomes, strict=True
+        ):
+            runs[case.id][model_index].append(bool(outcome))
+
+        return {
+            case_id: tuple(tuple(per_model) for per_model in per_case)
+            for case_id, per_case in runs.items()
+        }
 
     def _verdicts_for(self, case: EvalCase) -> tuple[bool, ...]:
         return tuple(
