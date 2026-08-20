@@ -338,10 +338,13 @@ def test_independent_judge_is_not_flagged_for_self_grading() -> None:
 
 
 def test_weaker_judge_is_flagged_as_a_grading_limitation() -> None:
+    """Wording changed when judge capability started being compared by
+    parameter count rather than by position in MODEL_LADDER."""
     notes = local_scorer.judge_limitations(
         ollama_judge(None, "qwen3:8b"), ("llama3.2:3b", "qwen3:14b")
     )
-    assert any("not the strongest available model" in n for n in notes)
+    assert any("UNDER-POWERED JUDGE" in n for n in notes)
+    assert any("8.2B" in n and "14.8B" in n for n in notes)
 
 
 def test_both_configured_pairs_contain_the_default_judge() -> None:
@@ -677,3 +680,71 @@ def test_cached_hits_are_served_under_concurrency(tmp_path) -> None:
 
     assert called == [], "a warm cache called out under concurrency"
     assert cache.hits == 8
+
+
+# --------------------------------------------------------------------------
+# Judge capability is reasoned about by parameter count, not ladder position
+# --------------------------------------------------------------------------
+
+
+def test_off_ladder_judge_is_not_called_weaker_than_the_ladder_top() -> None:
+    """The bug this replaces: judge_limitations compared the judge to
+    MODEL_LADDER[-1], so pointing --judge at a 24B model produced the flatly
+    false claim that it "is not the strongest available model ('qwen3:14b')".
+    A confidently wrong limitation is worse than none."""
+    judge = local_scorer.make_judge(
+        "ollama", "mistral-small:24b", local_scorer.PAIRS["narrow"], 0.0, 0,
+        client=object(),
+    )
+    notes = " ".join(local_scorer.judge_limitations(judge, local_scorer.PAIRS["narrow"]))
+
+    assert "not the strongest available" not in notes
+    assert "larger than both scored models" in notes
+
+
+def test_under_powered_judge_is_flagged() -> None:
+    judge = local_scorer.make_judge(
+        "ollama", "llama3.2:3b", local_scorer.PAIRS["narrow"], 0.0, 0, client=object()
+    )
+    notes = " ".join(local_scorer.judge_limitations(judge, local_scorer.PAIRS["narrow"]))
+
+    assert "UNDER-POWERED JUDGE" in notes
+    assert "3.2B" in notes and "14.8B" in notes
+
+
+def test_unknown_judge_says_it_cannot_compare() -> None:
+    """Silence would imply the judge is adequate. Say the check was impossible."""
+    judge = local_scorer.make_judge(
+        "ollama", "notamodel:7b", local_scorer.PAIRS["narrow"], 0.0, 0, client=object()
+    )
+    notes = " ".join(local_scorer.judge_limitations(judge, local_scorer.PAIRS["narrow"]))
+
+    assert "no known parameter count" in notes
+
+
+def test_same_family_judge_is_not_flagged_as_cross_family() -> None:
+    judge = local_scorer.make_judge(
+        "ollama", "qwen3:14b", local_scorer.PAIRS["narrow"], 0.0, 0, client=object()
+    )
+    notes = " ".join(local_scorer.judge_limitations(judge, local_scorer.PAIRS["narrow"]))
+
+    assert "DIFFERENT FAMILY" not in notes
+
+
+def test_self_grading_note_does_not_assert_self_preference() -> None:
+    """Measured on this project's own data, a weak in-pair judge inflated the
+    OTHER model more (+25pp vs +15pp), so the mechanism is leniency. The note
+    must not claim self-preference, which the data contradicts."""
+    judge = local_scorer.make_judge(
+        "ollama", "qwen3:8b", local_scorer.PAIRS["narrow"], 0.0, 0, client=object()
+    )
+    notes = " ".join(local_scorer.judge_limitations(judge, local_scorer.PAIRS["narrow"]))
+
+    assert "JUDGE IS ALSO A SCORED MODEL" in notes
+    assert "not necessarily self-preference" in notes
+    assert "lenient" in notes
+
+
+def test_model_params_covers_every_ladder_model() -> None:
+    for model in local_scorer.MODEL_LADDER:
+        assert model in local_scorer.MODEL_PARAMS_B, model

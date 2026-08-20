@@ -60,6 +60,18 @@ PAIRS = {
     "narrow": ("qwen3:8b", "qwen3:14b"),
 }
 
+# Parameter counts in billions, from `ollama list` / /api/show. Used to reason
+# about capability when a judge is NOT one of the models on the ladder: without
+# this, "is this judge stronger than what it is grading?" degrades into "is it
+# the last entry in MODEL_LADDER?", which is false the moment you point --judge
+# at anything else.
+MODEL_PARAMS_B = {
+    "llama3.2:3b": 3.2,
+    "qwen3:8b": 8.2,
+    "qwen3:14b": 14.8,
+    "mistral-small:24b": 24.0,
+}
+
 # Verified against /api/show: qwen3 reports the "thinking" capability,
 # llama3.2 does not. Sending `think` to a model without the capability is an
 # error — the same shape of trap as sending `effort` to Haiku on the Anthropic
@@ -455,17 +467,20 @@ def make_judge(
     )
 
 
+def _family(model: str) -> str:
+    """Model family, i.e. everything before the size tag."""
+    return model.split(":", 1)[0]
+
+
 def judge_limitations(judge: Judge, pair: tuple[str, str]) -> list[str]:
     """State what this judge choice cannot tell you.
 
-    Every option here trades one confound for another, so the job is to name
-    which trade was made rather than to imply the grader is neutral.
+    Every option trades one confound for another, so the job is to name which
+    trade was made rather than to imply the grader is neutral.
     """
     notes = []
 
     if judge.backend == "anthropic":
-        # Independent of both scored models, so no self-preference — but
-        # independence is not neutrality.
         notes.append(
             f"CROSS-FAMILY JUDGE: '{judge.model}' is from a different model "
             "family than the scored models, so it is independent of both — no "
@@ -478,8 +493,8 @@ def judge_limitations(judge: Judge, pair: tuple[str, str]) -> list[str]:
         )
         notes.append(
             "NON-DETERMINISTIC GRADING: the Claude 5 models reject a "
-            "temperature parameter, so unlike the Ollama judge at temperature "
-            "0 this grader cannot be pinned. Repeated runs can return different "
+            "temperature parameter, so unlike a local judge at temperature 0 "
+            "this grader cannot be pinned. Repeated runs can return different "
             "verdicts for identical answers — use --repeat to measure that "
             "rather than assuming a single run is stable."
         )
@@ -488,19 +503,52 @@ def judge_limitations(judge: Judge, pair: tuple[str, str]) -> list[str]:
     if judge.model in pair:
         notes.append(
             f"JUDGE IS ALSO A SCORED MODEL: '{judge.model}' grades its own "
-            "answers in this run. Self-preference bias inflates its pass rate, "
-            "which pushes results toward 'the strong model discriminates' "
-            "regardless of whether it does. Treat the pass rate for "
-            f"'{judge.model}' as an upper bound, not a measurement. "
-            "--judge-backend anthropic removes this confound."
+            "answers in this run. Its own pass rate is an upper bound, not a "
+            "measurement. Note the effect is not necessarily self-preference: "
+            "a weaker judge tends to be lenient toward EVERY answer, and "
+            "measurably more so toward the longer answers a stronger model "
+            "produces. Use a judge outside the pair to separate the two."
         )
-    if judge.model != MODEL_LADDER[-1]:
+
+    # Capability is compared by parameter count, not by position in
+    # MODEL_LADDER: a judge picked with --judge may not be on the ladder at
+    # all, and claiming it is weaker than the ladder's top entry would simply
+    # be false.
+    judge_b = MODEL_PARAMS_B.get(judge.model)
+    scored_b = [MODEL_PARAMS_B.get(m) for m in pair]
+    if judge_b is None:
         notes.append(
-            f"Judge '{judge.model}' is not the strongest available model "
-            f"('{MODEL_LADDER[-1]}'), so grading quality is itself a "
-            "limitation — a wrong verdict is indistinguishable from a model "
-            "failure in the output."
+            f"Judge '{judge.model}' has no known parameter count here, so this "
+            "run cannot say whether the grader is more capable than the models "
+            "it is grading. Add it to MODEL_PARAMS_B to get that check."
         )
+    elif all(b is not None for b in scored_b):
+        strongest = max(scored_b)
+        if judge_b < strongest:
+            notes.append(
+                f"UNDER-POWERED JUDGE: '{judge.model}' ({judge_b}B) is smaller "
+                f"than the strongest model it grades ({strongest}B). A wrong "
+                "verdict is indistinguishable from a model failure in the "
+                "output, so grading quality is itself a limitation here."
+            )
+        elif judge.model not in pair:
+            notes.append(
+                f"Judge '{judge.model}' ({judge_b}B) is larger than both scored "
+                f"models (max {strongest}B) and is not one of them, which is the "
+                "strongest local grading setup available — but it is still an "
+                "LLM judge, so a wrong verdict still reads as a model failure."
+            )
+
+    judge_family = _family(judge.model)
+    if judge_family not in {_family(m) for m in pair}:
+        notes.append(
+            f"DIFFERENT FAMILY: '{judge.model}' shares no training lineage with "
+            f"the scored models, which removes family-level affinity — a judge "
+            "from the same family can favour its relatives' phrasing even at a "
+            "different size. The trade is that it brings its own style "
+            "preferences instead."
+        )
+
     return notes
 
 
