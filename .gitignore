@@ -7,3 +7,6 @@ scripts/.response_cache.json
 .env
 scripts/.response_cache.json
 scripts/.local_cache.json
+
+# Personal interview prep — local only, never published
+docs/interview-prep.md
