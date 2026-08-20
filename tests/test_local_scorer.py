@@ -748,3 +748,81 @@ def test_self_grading_note_does_not_assert_self_preference() -> None:
 def test_model_params_covers_every_ladder_model() -> None:
     for model in local_scorer.MODEL_LADDER:
         assert model in local_scorer.MODEL_PARAMS_B, model
+
+
+# --------------------------------------------------------------------------
+# Reasoning-block delimiters are NOT all <think>, and verdicts must be strict
+# --------------------------------------------------------------------------
+
+REAL_KIMI_REPLY = (
+    "◁think▷Okay, let's see. The user is asking if the candidate's answer "
+    "matches the reference answer regarding switching to annual billing.◁/think▷"
+    "PASS"
+)
+
+
+def test_kimi_geometric_think_delimiters_are_stripped() -> None:
+    """Kimi-VL-A3B-Thinking emits U+25C1/U+25B7 shapes, not angle brackets.
+
+    Captured verbatim from a real call. The original regex matched only
+    <think>, so this text fell through unchanged, never started with PASS, and
+    would have produced a full sweep of FAIL verdicts -- a tidy-looking "100%
+    non-discriminating" result made entirely of unparsed reasoning.
+    """
+    assert local_scorer.strip_thinking(REAL_KIMI_REPLY) == "PASS"
+    assert local_scorer.parse_verdict(REAL_KIMI_REPLY) is True
+
+
+@pytest.mark.parametrize(
+    ("reply", "expected"),
+    [
+        ("<think>a</think>PASS", True),
+        ("◁think▷a◁/think▷FAIL", False),
+        ("<thinking>a</thinking>PASS", True),
+        ("[reasoning]a[/reasoning]FAIL", False),
+        ("<THINK>a</THINK>pass", True),
+        ("  PASS  ", True),
+        ("FAIL", False),
+    ],
+)
+def test_verdict_parsing_across_delimiter_styles(reply, expected) -> None:
+    assert local_scorer.parse_verdict(reply) is expected
+
+
+def test_prose_reply_raises_instead_of_becoming_FAIL() -> None:
+    """The old parse was startswith("PASS"), mapping everything unrecognised to
+    False. A broken grader then yields a plausible number instead of an error."""
+    with pytest.raises(local_scorer.UnparseableVerdictError, match="neither PASS nor FAIL"):
+        local_scorer.parse_verdict("I think the candidate answer is probably fine.")
+
+
+def test_truncated_reasoning_block_raises() -> None:
+    """An unclosed tag means the reply was cut off mid-reasoning, so whatever
+    follows is a fragment of thought, not a verdict."""
+    with pytest.raises(local_scorer.UnparseableVerdictError, match="unclosed reasoning block"):
+        local_scorer.parse_verdict("◁think▷still deciding and then the tokens ran")
+
+
+def test_unparseable_verdict_aborts_the_run_rather_than_scoring_it(tmp_path) -> None:
+    """End to end: a garbage judge must fail the check, not silently report
+    every case as FAIL."""
+
+    class BadJudge:
+        calls = 0
+
+        def chat(self, model, system, prompt, temperature=None, seed=None):
+            return {
+                "model": model,
+                "text": "Hmm, hard to say either way.",
+                "usage": {"input": 1, "output": 1},
+            }
+
+    with pytest.raises(ScorerError, match="neither PASS nor FAIL"):
+        DiscriminationCheck(
+            local_scorer.build_scorer(
+                FakeClient(),
+                _cache.ResponseCache(tmp_path / "c.json"),
+                ollama_judge(BadJudge()),
+            ),
+            [WEAK, STRONG],
+        ).run(make_set(1))

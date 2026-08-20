@@ -93,11 +93,28 @@ JUDGE_BACKENDS = ("ollama", "anthropic")
 # in the output. It is also still independent of both scored local models.
 ANTHROPIC_JUDGE_MODEL = "claude-opus-5"
 
-# Thinking models can still emit reasoning inline even with think disabled.
-# The judge parse keys on the response STARTING with PASS, so a leaked
-# <think> block would silently turn every verdict into FAIL — a systematic
-# grading failure that looks like a capability finding.
-_THINK_BLOCK = re.compile(r"<think>.*?</think>", re.DOTALL | re.IGNORECASE)
+# Thinking models emit reasoning inline, and NOT all of them use <think>.
+# Kimi-VL-A3B-Thinking uses U+25C1/U+25B7 geometric shapes: "◁think▷...◁/think▷".
+# It also reports capabilities ['completion','vision'] with no "thinking", so
+# ollama does not know to accept `think: false` for it either -- both defences
+# missed it, and a full run would have returned "100% non-discriminating" made
+# entirely of unparsed reasoning text.
+#
+# So the delimiter set is broad: ASCII angle brackets, the Kimi shapes, and
+# square brackets, around think/thinking/reasoning.
+_THINK_BLOCK = re.compile(
+    r"[<◁\[]\s*(?:think(?:ing)?|reasoning)\s*[>▷\]]"      # opening tag
+    r".*?"                                                  # the reasoning
+    r"[<◁\[]\s*/\s*(?:think(?:ing)?|reasoning)\s*[>▷\]]",  # closing tag
+    re.DOTALL | re.IGNORECASE,
+)
+
+# An opening tag with no matching close means the reasoning block was truncated
+# (hit a token limit). Whatever text follows is a fragment of reasoning, not an
+# answer, so it must be rejected rather than graded.
+_DANGLING_THINK = re.compile(
+    r"[<◁\[]\s*(?:think(?:ing)?|reasoning)\s*[>▷\]]", re.IGNORECASE
+)
 
 ANSWER_SYSTEM = (
     "You are a customer support agent for a SaaS product. Answer the "
@@ -148,9 +165,40 @@ class ChatClient(Protocol):
     ) -> dict[str, Any]: ...
 
 
+class UnparseableVerdictError(RuntimeError):
+    """A judge returned something that is neither PASS nor FAIL."""
+
+
 def strip_thinking(text: str) -> str:
-    """Remove <think>...</think> blocks a reasoning model may emit inline."""
+    """Remove reasoning blocks a thinking model may emit inline."""
     return _THINK_BLOCK.sub("", text).strip()
+
+
+def parse_verdict(text: str) -> bool:
+    """Turn a judge reply into a bool, or refuse.
+
+    The old code was `text.strip().upper().startswith("PASS")`, which maps
+    EVERYTHING unrecognised to False. A judge emitting reasoning prose then
+    produces a full set of FAIL verdicts and a tidy-looking "100%
+    non-discriminating" result that is entirely an artifact of parsing. Raising
+    instead makes a broken grader a loud failure rather than a plausible number.
+    """
+    cleaned = strip_thinking(text)
+    if _DANGLING_THINK.search(cleaned):
+        raise UnparseableVerdictError(
+            "judge reply contains an unclosed reasoning block (likely truncated "
+            f"by a token limit): {cleaned[:120]!r}"
+        )
+    upper = cleaned.upper()
+    if upper.startswith("PASS"):
+        return True
+    if upper.startswith("FAIL"):
+        return False
+    raise UnparseableVerdictError(
+        "judge reply is neither PASS nor FAIL, so it cannot be graded. Either "
+        "the model ignores the one-word instruction or it emits reasoning in a "
+        f"format strip_thinking() does not recognise. Got: {cleaned[:200]!r}"
+    )
 
 
 def chat_options(model: str, temperature: float, seed: int) -> dict[str, Any]:
@@ -424,7 +472,7 @@ def build_scorer(
             ),
         )
 
-        return verdict["text"].strip().upper().startswith("PASS")
+        return parse_verdict(verdict["text"])
 
     return score
 
