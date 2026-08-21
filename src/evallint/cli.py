@@ -32,7 +32,7 @@ from .checks import DuplicateCheck, ImbalanceCheck
 from .checks.base import CheckResult
 from .checks.duplicates import DEFAULT_MODEL, DEFAULT_THRESHOLD
 from .config import ConfigError, find_config, load_config
-from .io import LoadError, load
+from .io import LoadError, load_with_mapping
 from .report import render_text, to_dict
 
 log = logging.getLogger(__name__)
@@ -119,6 +119,16 @@ def _gate(results: list[CheckResult], fail_on: str) -> tuple[int, str]:
     "limitations each check reports.",
 )
 @click.option(
+    "--map",
+    "field_map",
+    multiple=True,
+    metavar="FIELD=COLUMN",
+    help="Map one of evallint's fields onto a column in your file, e.g. "
+    "--map input=question --map label=subject. Repeatable. Common aliases "
+    "(question/prompt/ctx, answer/reference/best_answer, category/subject) are "
+    "inferred automatically; use this when inference is ambiguous or wrong.",
+)
+@click.option(
     "--config",
     "config_path",
     type=click.Path(exists=True, dir_okay=False, path_type=Path),
@@ -147,6 +157,7 @@ def main(
     min_class_share: float,
     min_class_count: int,
     fail_on: str,
+    field_map: tuple[str, ...],
     config_path: Path | None,
     no_config: bool,
     verbose: int,
@@ -201,8 +212,18 @@ def main(
     # a clean JSON file.
     status_console = Console(stderr=True)
 
+    overrides: dict[str, str] = {}
+    for item in field_map:
+        if "=" not in item:
+            click.echo(
+                f"Error: --map expects FIELD=COLUMN, got {item!r}", err=True
+            )
+            sys.exit(EXIT_INCOMPLETE)
+        field, _, column = item.partition("=")
+        overrides[field.strip()] = column.strip()
+
     try:
-        eval_set = load(path)
+        eval_set, mapping = load_with_mapping(path, overrides or None)
     except LoadError as exc:
         # Exit 3, not 1: an unreadable file is an incomplete audit, not a
         # failed gate. A pipeline should react differently to the two.
@@ -221,6 +242,11 @@ def main(
         ).run(eval_set)
     ]
     notes = [DISCRIMINATION_NOTE]
+    # Always surface a non-identity mapping. A silently wrong column choice
+    # produces a plausible report about the wrong data, so it must be visible
+    # without needing -v.
+    if not mapping.is_identity() or mapping.alternatives:
+        notes.extend(f"field map: {line}" for line in mapping.explain())
     incomplete: list[str] = []
 
     if skip_duplicates:

@@ -95,6 +95,7 @@ evallint examples/sample_evalset.jsonl
 | `--min-class-share` | `0.10` | Warn when a class holds less than this share of labelled cases (too small to move the aggregate number). |
 | `--min-class-count` | `5` | Warn when a class has fewer than this many cases (too few for its own accuracy to mean anything). |
 | `--fail-on` | `never` | Exit non-zero so CI can gate on the result: `warning` fails on any warning, `any` also fails on info. |
+| `--map FIELD=COLUMN` | inferred | Point one of evallint's fields at a column in your file. Repeatable. |
 
 ```bash
 evallint --json evalset.jsonl > report.json      # machine-readable, for CI
@@ -102,7 +103,59 @@ evallint --skip-duplicates evalset.jsonl         # no model download
 evallint --duplicate-threshold 0.92 set.jsonl    # stricter: only very close pairs
 evallint --min-class-share 0.05 set.jsonl        # tolerate smaller classes
 evallint --min-class-count 20 set.jsonl          # demand more cases per class
+evallint --map input=question set.jsonl          # your column names, not ours
 ```
+
+### Your column names
+
+evallint's fields are `id`, `input`, `expected`, `label` — and almost no real
+eval set uses those names. Five widely-used public datasets were tried cold and
+**all five failed on line 1**, because they call the input `question`, `prompt`,
+`ctx` or `turns`. Common aliases are now inferred, so most files load unaided:
+
+```bash
+$ evallint gsm8k.jsonl --skip-duplicates
+  · field map: input <- 'question' (inferred)
+  · field map: expected <- 'answer' (inferred)
+```
+
+The mapping is always printed. That is the point: a loader that quietly picks
+the wrong column produces a confident report about the wrong data, which is the
+exact failure this tool exists to catch. So the rules are deliberately timid:
+
+- A column already named `input` / `expected` / `label` is used as-is.
+- Otherwise aliases are considered, and **exactly one** candidate is accepted.
+- Two candidates is an error naming both, not a coin flip. TruthfulQA has
+  `category` *and* `type`; evallint refuses and tells you to pick:
+
+  ```
+  Error: cannot tell which column is 'label': category, type are all plausible.
+  Choose one explicitly, e.g. --map label=category
+  ```
+
+- Alternatives that were passed over are reported too. HellaSwag has a column
+  literally named `label`, but there it means *the index of the correct ending*,
+  not a class. evallint cannot know that, so it uses the canonical name and
+  says what else was available:
+
+  ```
+  · field map: label <- 'label'  [WARNING: 'label' used as-is, but
+    activity_label also present — check the meaning]
+  ```
+
+  That warning is load-bearing. Taking `label` gives "4 classes, ratio 1.2:1",
+  which is meaningless — it's counting answer positions. `--map
+  label=activity_label` gives **39 classes, ratio 14.0:1**, which is the real
+  finding. Same file, opposite conclusion, and the only thing standing between
+  them is that evallint said which column it used.
+
+Explicit `--map` always wins, and a mapped field is never overwritten by a
+leftover column of the same name (the displaced column is kept in metadata and
+reported, not dropped).
+
+Multi-turn sets are a genuine limitation rather than a naming one: MT-Bench's
+prompt is a *list* of turns, and evallint models one case as one input string.
+No `--map` fixes that; it exits 3 and says so.
 
 ### Configuration file
 

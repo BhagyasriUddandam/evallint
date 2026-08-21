@@ -4,6 +4,30 @@ All notable changes to this project are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- **Column mapping** (`evallint.mapping`, `--map FIELD=COLUMN`). Five widely-used
+  public eval datasets were tried cold and all five failed on line 1, because
+  none of them names its input column `input`. Common aliases (`question`,
+  `prompt`, `ctx`, `answer`, `best_answer`, `reference`, `category`, `subject`,
+  …) are now inferred, and the resolved mapping is always reported.
+  - Ambiguity is an error, not a guess: TruthfulQA's `category` *and* `type` are
+    both plausible labels, so evallint names both and asks.
+  - A canonical column name is used as-is, with passed-over alternatives
+    reported. HellaSwag's `label` means the correct-ending index, not a class;
+    taking it yields a meaningless "4 classes, 1.2:1" where
+    `--map label=activity_label` yields the real "39 classes, 14.0:1".
+  - `load_with_mapping()` returns the mapping alongside the eval set.
+- Public API: `load_with_mapping`, `FieldMapping`, `resolve_mapping`,
+  `MappingError`, `AmbiguousMappingError` (24 exports, up from 19).
+
+### Fixed
+- A leftover column named `label` could overwrite the value the mapping had just
+  taken from another column, silently. `--map label=activity_label` appeared to
+  do nothing while reporting a confident, wrong result. The displaced column is
+  now moved to metadata and reported rather than dropped or allowed to win.
+
 ## [0.1.0] — 2026-08-19
 
 First release.

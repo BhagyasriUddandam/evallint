@@ -31,9 +31,10 @@ import time
 from pathlib import Path
 from typing import Any
 
+from .mapping import FieldMapping, apply_mapping, resolve_mapping
 from .schema import EvalCase, EvalSet, SchemaError
 
-__all__ = ["LoadError", "load"]
+__all__ = ["LoadError", "load", "load_with_mapping"]
 
 log = logging.getLogger(__name__)
 
@@ -45,11 +46,14 @@ class LoadError(ValueError):
     """A file could not be read, parsed, or turned into a valid EvalSet."""
 
 
-def load(path: str | Path) -> EvalSet:
+def load(path: str | Path, field_map: dict[str, str] | None = None) -> EvalSet:
     """Read an eval set from disk.
 
     Args:
         path: Path to a .jsonl, .ndjson, .json or .csv file.
+        field_map: Optional explicit ``field -> column`` mapping, e.g.
+            ``{"input": "question", "label": "subject"}``. When omitted,
+            common aliases are inferred -- see :mod:`evallint.mapping`.
 
     Returns:
         A validated EvalSet whose ``source`` is the path it was read from.
@@ -57,6 +61,18 @@ def load(path: str | Path) -> EvalSet:
     Raises:
         LoadError: The file is missing, has an unsupported extension, is not
             parseable, or contains a case that violates the schema.
+    """
+    return load_with_mapping(path, field_map)[0]
+
+
+def load_with_mapping(
+    path: str | Path, field_map: dict[str, str] | None = None
+) -> tuple[EvalSet, FieldMapping]:
+    """Like :func:`load`, but also returns how columns were mapped.
+
+    The CLI uses this so it can print the mapping. A silently wrong inference
+    is the one failure mode this feature must not have, and the only defence
+    is showing the user which columns were actually used.
     """
     started = time.perf_counter()
     path = Path(path)
@@ -76,8 +92,30 @@ def load(path: str | Path) -> EvalSet:
             "(expected .jsonl, .ndjson, .json or .csv)"
         )
 
+    # Column names come from the first record; JSONL in the wild is ragged, so
+    # union the first few rather than trusting row 1 to have every field.
+    sample: list[str] = []
+    for _, record in records[:25]:
+        if isinstance(record, dict):
+            for key in record:
+                if key not in sample:
+                    sample.append(key)
+
+    if sample or field_map:
+        try:
+            mapping = resolve_mapping(sample, field_map)
+        except ValueError as exc:
+            raise LoadError(f"{path.name}: {exc}") from exc
+    else:
+        # No columns to map means no records, or no records that are objects.
+        # Both already have their own precise error further down; a mapping
+        # complaint here ("no column could be used as 'input'. Columns found: ")
+        # would just be a worse-worded version of it.
+        mapping = FieldMapping({})
+
     cases = [
-        _to_case(record, where, position)
+        _to_case(apply_mapping(record, mapping) if isinstance(record, dict) else record,
+                 where, position)
         for position, (where, record) in enumerate(records, start=1)
     ]
 
@@ -90,7 +128,9 @@ def load(path: str | Path) -> EvalSet:
         "loaded %d cases from %s (%s) in %.3fs",
         len(eval_set), path, suffix.lstrip(".") or "?", time.perf_counter() - started,
     )
-    return eval_set
+    for line in mapping.explain():
+        log.debug("field map: %s", line)
+    return eval_set, mapping
 
 
 def _read_jsonl(path: Path) -> list[tuple[str, Any]]:

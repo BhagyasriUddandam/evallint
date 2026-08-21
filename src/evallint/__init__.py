@@ -44,7 +44,13 @@ from .checks import (
     ScorerError,
     Severity,
 )
-from .io import LoadError, load
+from .io import LoadError, load, load_with_mapping
+from .mapping import (
+    AmbiguousMappingError,
+    FieldMapping,
+    MappingError,
+    resolve_mapping,
+)
 from .report import render_text, to_dict
 from .schema import EvalCase, EvalSet, SchemaError
 
@@ -67,6 +73,10 @@ __all__ = [
     "EvalCase",
     "EvalSet",
     "load",
+    "load_with_mapping",
+    # column mapping (real eval sets do not use evallint's field names)
+    "FieldMapping",
+    "resolve_mapping",
     # checks
     "Check",
     "CheckResult",
@@ -82,7 +92,9 @@ __all__ = [
     "render_text",
     "to_dict",
     # errors
+    "AmbiguousMappingError",
     "LoadError",
+    "MappingError",
     "MissingEmbeddingsError",
     "SchemaError",
     "ScorerError",
