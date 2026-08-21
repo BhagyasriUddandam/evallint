@@ -68,8 +68,25 @@ jobs:
       - name: Run tests
         run: .venv/bin/python -m pytest -q
 
-      - name: Smoke-test the CLI
-        run: .venv/bin/evallint examples/sample_evalset.jsonl
+      - name: Smoke-test the CLI, and assert a partial audit exits 3
+        # This step used to be a bare `evallint examples/...` and it FAILED --
+        # correctly. On a core install sentence-transformers is absent, so the
+        # duplicate check cannot load, so the run is a 1-of-2 audit and exits 3
+        # by design: "I could not finish" must never be reported as "clean".
+        # So assert the contract instead of dodging it. --skip-duplicates is the
+        # documented way to choose this scope deliberately, and exits 0.
+        shell: bash
+        run: |
+          .venv/bin/evallint examples/sample_evalset.jsonl --skip-duplicates
+          set +e
+          .venv/bin/evallint examples/sample_evalset.jsonl >/dev/null 2>&1
+          code=$?
+          set -e
+          if [ "$code" != "3" ]; then
+            echo "::error::a core install cannot run the duplicate check, so a bare run must exit 3 (incomplete audit); got $code"
+            exit 1
+          fi
+          echo "confirmed: bare run exits 3, --skip-duplicates exits 0"
 
   # One job with the optional extra, so the two end-to-end embedding tests
   # actually execute somewhere. Ubuntu + oldest supported Python is enough:
@@ -147,7 +164,10 @@ jobs:
         run: |
           uv venv /tmp/fresh
           uv pip install --python /tmp/fresh/bin/python dist/*.whl
-          /tmp/fresh/bin/evallint examples/sample_evalset.jsonl
+          # --skip-duplicates for the same reason as the core job: the wheel is
+          # installed WITHOUT the [embeddings] extra, so a bare run is a partial
+          # audit and exits 3 on purpose.
+          /tmp/fresh/bin/evallint examples/sample_evalset.jsonl --skip-duplicates
           /tmp/fresh/bin/python -c "
           import evallint, pathlib
           assert (pathlib.Path(evallint.__file__).parent / 'py.typed').is_file(), 'py.typed missing from the wheel'
