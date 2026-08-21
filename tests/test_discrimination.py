@@ -581,24 +581,61 @@ def test_max_workers_defaults_to_serial() -> None:
 
 
 def test_concurrency_actually_runs_calls_in_parallel() -> None:
-    """A sleeping scorer stands in for an API call. If the pool is working,
-    wall-clock time is a fraction of the serial total."""
-    import time
+    """Prove the pool overlaps scorer calls by OBSERVING the overlap.
 
-    eval_set = make_set([f"c{i}" for i in range(16)])
+    This previously asserted `elapsed < serial_total / 3` with a sleeping
+    scorer. That measures the CI runner's scheduling as much as our
+    concurrency, and it failed on GitHub's macOS runners in 2 of its first 4
+    executions -- once by 16ms, 0.549s against a 0.533s bound -- while passing
+    on Ubuntu every time and never reproducing locally in 25 runs. A
+    wall-clock margin on a shared runner is a coin flip, and a test that fails
+    3% of the time for no reason trains you to re-run CI instead of reading it.
 
-    def slow(case: EvalCase, model: str) -> bool:
-        time.sleep(0.05)
+    A barrier asserts the same property without a clock: it releases only once
+    `workers` calls are inside the scorer simultaneously, so a serial
+    implementation times out and fails EVERY time rather than occasionally.
+    The speed-up is a consequence of that overlap, and is not separately
+    asserted because it cannot be measured reliably on shared hardware.
+    """
+    import threading
+
+    workers = 4
+    # cases x models must be an exact multiple of `workers`, or the final
+    # barrier group would never fill and would wait out its timeout.
+    eval_set = make_set([f"c{i}" for i in range(8)])
+
+    barrier = threading.Barrier(workers)
+    lock = threading.Lock()
+    in_flight = 0
+    max_in_flight = 0
+    never_overlapped = False
+
+    def concurrent_only(case: EvalCase, model: str) -> bool:
+        nonlocal in_flight, max_in_flight, never_overlapped
+        with lock:
+            in_flight += 1
+            max_in_flight = max(max_in_flight, in_flight)
+        try:
+            barrier.wait(timeout=10)
+        except threading.BrokenBarrierError:
+            never_overlapped = True
+        with lock:
+            in_flight -= 1
         return model == STRONG
 
-    serial_total = 16 * 2 * 0.05  # 1.6s
+    DiscriminationCheck(
+        concurrent_only, [WEAK, STRONG], max_workers=workers
+    ).run(eval_set)
 
-    t0 = time.perf_counter()
-    DiscriminationCheck(slow, [WEAK, STRONG], max_workers=8).run(eval_set)
-    elapsed = time.perf_counter() - t0
-
-    assert elapsed < serial_total / 3, (
-        f"expected well under {serial_total / 3:.2f}s with 8 workers, got {elapsed:.2f}s"
+    assert not never_overlapped, (
+        f"the barrier timed out: {workers} scorer calls were never inside the "
+        "scorer at the same time, so the calls ran serially"
+    )
+    # Exactly `workers`, not merely more than one: the barrier guarantees at
+    # least that many overlap, and ThreadPoolExecutor guarantees no more. So
+    # this also pins that max_workers is respected rather than exceeded.
+    assert max_in_flight == workers, (
+        f"expected exactly {workers} calls in flight at once, saw {max_in_flight}"
     )
 
 
