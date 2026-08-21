@@ -65,8 +65,42 @@ jobs:
           fi
           echo "confirmed: no torch in the core install"
 
+      - name: Record the exact environment
+        # This job has failed intermittently on one runner (macos/py3.12: 2 of
+        # its first 4 executions) while passing everywhere else and never
+        # reproducing locally on the same OS and Python. Print what the runner
+        # actually resolved, so the next occurrence can be compared against a
+        # green one instead of guessed at.
+        shell: bash
+        run: |
+          .venv/bin/python - <<'PY'
+          import platform, sys
+          import numpy
+          print("python  ", sys.version.split()[0], "|", sys.executable)
+          print("platform", platform.platform(), "|", platform.machine())
+          print("numpy   ", numpy.__version__)
+          PY
+
       - name: Run tests
-        run: .venv/bin/python -m pytest -q
+        # Job logs require admin rights to read through the API, but ANNOTATIONS
+        # are public. An intermittent failure whose output nobody can read is
+        # untriageable, so on failure the tail of the pytest output is emitted as
+        # an annotation. -ra also lists skip reasons, and the exit code is
+        # reported explicitly: a plain non-zero from a named FAILED test is a
+        # test bug, while 134/139 with no FAILED lines is a native crash, and
+        # those need completely different fixes.
+        shell: bash
+        run: |
+          set +e
+          .venv/bin/python -m pytest -q -ra --tb=short > pytest.log 2>&1
+          code=$?
+          set -e
+          cat pytest.log
+          if [ "$code" -ne 0 ]; then
+            detail=$(tail -25 pytest.log | tr '\n' '~' | sed 's/%/%25/g; s/\r/ /g')
+            echo "::error title=pytest exit ${code} on ${{ matrix.os }} py${{ matrix.python }}::${detail}"
+            exit "$code"
+          fi
 
       - name: Smoke-test the CLI, and assert a partial audit exits 3
         # This step used to be a bare `evallint examples/...` and it FAILED --
