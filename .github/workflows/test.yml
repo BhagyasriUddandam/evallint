@@ -66,11 +66,12 @@ jobs:
           echo "confirmed: no torch in the core install"
 
       - name: Record the exact environment
-        # This job has failed intermittently on one runner (macos/py3.12: 2 of
-        # its first 4 executions) while passing everywhere else and never
-        # reproducing locally on the same OS and Python. Print what the runner
-        # actually resolved, so the next occurrence can be compared against a
-        # green one instead of guessed at.
+        # Added while chasing an intermittent macOS failure that turned out to
+        # be a wall-clock assertion in our own concurrency test (since fixed by
+        # asserting observed overlap instead of elapsed time). Kept because it
+        # costs about a second and the next mystery will want it: an
+        # environment-dependent failure is untriageable without knowing what the
+        # runner actually resolved.
         shell: bash
         run: |
           .venv/bin/python - <<'PY'
@@ -145,7 +146,7 @@ jobs:
       - name: Cache the sentence-transformers model
         # ~90MB of weights, downloaded on first use. Caching keeps this job
         # from re-fetching them on every run.
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: ~/.cache/huggingface
           key: hf-${{ runner.os }}-all-MiniLM-L6-v2
@@ -210,7 +211,7 @@ jobs:
           "
 
       - name: Upload artifacts for inspection
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: dist
           path: dist/
