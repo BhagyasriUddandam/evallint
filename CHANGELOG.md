@@ -4,7 +4,7 @@ All notable changes to this project are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.2.0] — 2026-08-22
 
 ### Added
 - **`DiscriminationCheck(sample=N, sample_seed=0)`** — bound the cost of the only
@@ -150,4 +150,5 @@ First release.
   `embedder=` callable instead.
 - Not an eval runner. It audits the dataset that eval runners consume.
 
+[0.2.0]: https://github.com/BhagyasriUddandam/evallint/releases/tag/v0.2.0
 [0.1.0]: https://github.com/BhagyasriUddandam/evallint/releases/tag/v0.1.0

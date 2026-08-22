@@ -1,6 +1,6 @@
 [project]
 name = "evallint"
-version = "0.1.1"
+version = "0.2.0"
 description = "Audits LLM eval datasets for the flaws that make evaluations silently lie."
 readme = "README.md"
 requires-python = ">=3.12"
