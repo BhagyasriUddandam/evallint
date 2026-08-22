@@ -228,3 +228,33 @@ def test_the_sdk_is_not_imported_at_module_scope() -> None:
         f"{offenders} imported at module scope; import it inside the function "
         "that needs it, or the core-only CI jobs cannot collect these tests"
     )
+
+
+def test_the_scorer_runs_with_no_provider_sdk_installed() -> None:
+    """REGRESSION, stronger than the AST check above.
+
+    The first fix moved the SDK import from module scope into score() -- and CI
+    still failed, because the tests CALL score(). The import has to sit on the
+    cache-miss path, which is the only place a provider is genuinely needed.
+
+    This reproduces the core-job environment locally by making `import
+    anthropic` fail, then exercising the scorer end to end against a stub
+    cache. Without it the constraint is only checked by four CI jobs after a
+    push, which is how the first fix shipped broken.
+    """
+    import builtins
+
+    real_import = builtins.__import__
+
+    def blocked(name, *args, **kwargs):
+        if name == "anthropic":
+            raise ModuleNotFoundError("No module named 'anthropic'")
+        return real_import(name, *args, **kwargs)
+
+    builtins.__import__ = blocked
+    try:
+        module = _load("gsm8k_discrimination")
+        score = module.make_scorer(SpyCache(), client=None, verbose=False)
+        assert score(CASE, "m") is True
+    finally:
+        builtins.__import__ = real_import

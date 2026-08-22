@@ -147,8 +147,6 @@ def make_scorer(cache: ResponseCache, client, verbose: bool):
     counter_lock = threading.Lock()
 
     def score(case, model: str) -> bool:
-        from _anthropic_backend import call_model
-
         with counter_lock:
             n = attempts.get((case.id, model), 0)
             attempts[(case.id, model)] = n + 1
@@ -165,11 +163,16 @@ def make_scorer(cache: ResponseCache, client, verbose: bool):
         if n:
             key["attempt"] = n
 
-        record = cache.get_or_call(
-            key,
-            lambda: call_model(client, model, SYSTEM, case.input,
-                               effort=EFFORT),
-        )
+        def fetch():
+            # The SDK import lives HERE, on the cache-miss path, not at the top
+            # of score(). Two consequences, both wanted: the tests can exercise
+            # the scorer with a stub cache and no provider SDK installed, and
+            # replaying a fully cached run needs no SDK at all.
+            from _anthropic_backend import call_model
+
+            return call_model(client, model, SYSTEM, case.input, effort=EFFORT)
+
+        record = cache.get_or_call(key, fetch)
         got = _number(record["text"], _MARKER, "ANSWER: line")
         want = _number(case.expected, _REFERENCE, "#### reference")
         if verbose:
