@@ -26,11 +26,31 @@ reference answer and grader before blaming difficulty), and `inverted` (a *weake
 passed where a stronger one failed — usually a broken reference answer, and worth more
 than either).
 
-**Near-duplicate detection.** Embeds each case's input with a local sentence-transformers
-model, computes pairwise cosine similarity, and groups linked cases into clusters. Matters
-because duplicates make an eval look bigger and broader than it is while silently
-multiplying one scenario's weight in the aggregate score — a set of 20 cases with three
-phrasings of the same question is really 18 scenarios, and the repeated one counts triple.
+**Semantic redundancy, at five levels.** Only one of the five uses a cosine
+threshold, which is deliberate — a single tuned number should not be the ground
+truth for whether two cases are the same. `exact`, `normalized` (identical after
+folding case, spacing and punctuation) and `template` (identical after masking
+numbers and quoted spans) are **deterministic comparisons with nothing to tune**.
+`scenario` and `semantic` use embeddings and are reported as heuristic. So
+`DUPLICATE` and `SIMILAR` are separate claims, not one score.
+
+Measured on the reference model, that separation earns its place: real
+paraphrases span cosine **0.60 to 0.86**, so no single threshold has both good
+precision and good recall — while `"What is 5 plus 3"` and `"What is 12 plus 7"`
+score only **0.717** and are missed by the semantic level entirely, yet caught
+exactly by the template level. Each run also reports how many similar pairs it
+would find at 0.80/0.85/0.90/0.95, so you can see whether the threshold is
+load-bearing for *your* data.
+
+Comparison uses `input` + `expected` by default: the same question with two
+different reference answers is a ground-truth contradiction, not a duplicate, and
+collapsing them would hide it. `--compare input` restores input-only matching.
+The three deterministic levels need no model, so this runs in a core install.
+
+What it reports is **how much weight one scenario carries in an averaged score** —
+a fact about arithmetic, not a judgement. Consistency tests, template families and
+regression suites are all legitimate reasons to repeat a scenario, so no finding
+here calls a case invalid.
 
 **Class imbalance and basic stats.** Reports class distribution, imbalance ratio, and
 per-class counts. Matters because aggregate accuracy hides failure on rare classes: a
@@ -224,7 +244,12 @@ configures logging — it never configures logging on your behalf.
 | `0` | the gate passed |
 | `1` | the gate tripped — findings at or above `--fail-on` |
 | `2` | usage error (bad flag or missing file) |
-| `3` | **the audit could not be completed** — unreadable file, or a check raised |
+| `3` | **the audit could not be completed** — unreadable file, a check raised, or a check ran only partially |
+
+A check that RAN but could not run fully also exits `3`. On a core install the
+redundancy check completes its three deterministic levels and reports that the two
+semantic ones were unavailable — a narrower audit than advertised, so it does not go
+green. `--skip-duplicates` exits `0`, because that is you choosing the scope.
 
 `3` is deliberately separate from `1`. *"Your eval set has warnings"* and *"I could not
 finish auditing your eval set"* need different reactions in a pipeline, and collapsing
@@ -433,17 +458,30 @@ imbalance
 leakage
   20 answered cases, none contain their own answer
 
-duplicates
-  20 cases, 3 near-duplicate clusters covering 7 cases — about 16 distinct scenarios
-  (20% redundant)
-  WARN  3 near-identical cases (pairwise cosine 0.81-0.91)
+redundancy
+  20 cases, 3 redundant clusters covering 7 cases — about 16 distinct scenarios (1
+  duplicate, 2 similar)
+  WARN  cluster 1: 3 cases are the same scenario worded differently, with the same
+        expected answer [SIMILAR]. Mean pairwise similarity 0.95. Range 0.92-0.97. They
+        receive 15% of the aggregate weight where one scenario would receive 5% —
+        benchmark weighting risk HIGH. This may be intentional; consistency tests and
+        template families are legitimate
         billing_001, billing_002, billing_003
-  WARN  2 cases have identical input text
+  WARN  cluster 2: 2 cases are identical [DUPLICATE]. Mean pairwise similarity 1.00.
+        They receive 10% of the aggregate weight where one scenario would receive 5% —
+        benchmark weighting risk HIGH. This may be intentional; consistency tests and
+        template families are legitimate
         billing_004, billing_014
-  WARN  2 near-identical cases (pairwise cosine 0.98)
+  WARN  cluster 3: 2 cases are the same scenario worded differently, with the same
+        expected answer [SIMILAR]. Mean pairwise similarity 0.98. They receive 10% of
+        the aggregate weight where one scenario would receive 5% — benchmark weighting
+        risk HIGH. This may be intentional; consistency tests and template families are
+        legitimate
         password_001, password_002
+  INFO  similar pairs by threshold — 0.80: 5, 0.85: 5, 0.90: 5, 0.95: 4. That is stable,
+        so the threshold is not load-bearing for this data
 
-7 warnings across 3 checks
+7 warnings across 3 checks, plus 1 for information
 
 Not run
   · discrimination — needs a scoring function that runs your models, so it cannot run
@@ -481,22 +519,38 @@ What this audit cannot tell you
       genuine leak of a short label will therefore be missed.
     · Only the 'input' and 'expected' fields are read. An answer leaked through
       metadata, a filename, or an id is not seen.
-  duplicates
-    · Similarity is computed on the 'input' field alone. Two cases with the same input
-      but different 'expected' values may be deliberate (testing consistency, or a known
-      ambiguity) — read a cluster before deleting from it.
-    · The threshold is a heuristic, not a decision boundary. It was checked against one
-      small example set where duplicates and non-duplicates separate cleanly; a domain
-      with formulaic phrasing (SQL, legal boilerplate, templated prompts) will push
-      unrelated cases above it.
-    · Clusters are connected components: if A is similar to B and B to C, all three are
-      grouped even when A and C are not themselves similar. The pairwise range reported
-      for each cluster shows when this has happened.
-    · Inputs longer than the model's token limit (256 word pieces for all-MiniLM-L6-v2)
-      are truncated before embedding, so two long cases that differ only in their
-      endings can look identical to this check.
-    · Every pair is compared, so time and memory grow with the square of the case count.
-      Fine for a few thousand cases, not for a corpus.
+  redundancy
+    · SIMILAR IS NOT INVALID. Near-identical cases are often deliberate: consistency
+      tests reuse an input on purpose, template families cover an operation across many
+      operands, and regression suites repeat a scenario that once broke. This check
+      reports how much weight one scenario carries in an averaged score. It does not
+      tell you to delete anything.
+    · The exact, normalized and template levels are deterministic and cannot be changed
+      by tuning. The scenario and semantic levels depend on an embedding model AND a
+      threshold, both of which are choices — treat them as evidence to look at, not as
+      measurements.
+    · Template detection masks numbers and quoted spans only. It does NOT recognise
+      named entities, so 'flight from Paris to Rome' and 'flight from Berlin to Madrid'
+      are not detected as one template. Nor does it know whether a template family is
+      deliberate coverage or accidental bulk.
+    · Similarity is computed on whichever fields you selected. With the default
+      input+expected, two cases with the same question and DIFFERENT answers are not
+      grouped — which is correct, because that is a ground-truth contradiction rather
+      than redundancy, but it means this check will not report it. Compare on 'input'
+      alone if you want those grouped.
+    · Clusters are connected components: if A is redundant with B and B with C, all
+      three are grouped even when A and C are not themselves close. The minimum pairwise
+      similarity for each cluster is reported so this is visible.
+    · Weight-share risk bands (10% high, 5% medium) are conventions with no statistical
+      derivation. The raw share is reported so you can apply your own. The principled
+      anchor is your eval's own resolution — a cluster that can move the score by more
+      than the smallest difference the eval can detect is the one that matters — and
+      this check does not compute that.
+    · Inputs longer than the embedding model's token limit are truncated before
+      encoding, so two long cases differing only in their endings can look identical to
+      the semantic levels.
+    · Every pair is compared, so semantic analysis costs time and memory proportional to
+      the square of the case count.
 ```
 
 Two things in that output are deliberate. **Discrimination is listed under "Not run"**
@@ -553,7 +607,7 @@ runner.
 ## Development
 
 ```bash
-uv run pytest    # 358 tests
+uv run pytest    # 388 tests
 ```
 
 Every check is tested both ways: it must **fire on known-bad input** and **stay quiet on

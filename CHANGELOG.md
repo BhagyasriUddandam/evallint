@@ -4,6 +4,89 @@ All notable changes to this project are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.5.0] — 2026-08-22
+
+### Added
+- **`RedundancyCheck` — semantic redundancy at five levels**, superseding the
+  narrower `DuplicateCheck` in the CLI. Only ONE of the five uses a cosine
+  threshold, which is the point: a single tuned number should not be the ground
+  truth for whether two cases are the same.
+
+      exact        byte-identical comparison text            DUPLICATE
+      normalized   identical after case/space/punct fold     DUPLICATE
+      template     identical after masking numbers and       DUPLICATE
+                   quoted spans
+      scenario     cosine >= threshold AND same expected     SIMILAR
+      semantic     cosine >= threshold                       SIMILAR
+
+  `DUPLICATE` and `SIMILAR` are separate claims. The first three are
+  comparisons with nothing to tune; the last two depend on a model and a
+  threshold and are labelled heuristic in the output, the stats and the
+  severity.
+
+  **Measured justification for multiple mechanisms.** On the reference model,
+  genuine paraphrases span cosine 0.599 / 0.659 / 0.860 — no single threshold
+  has both good precision and good recall over that range. And "What is 5 plus
+  3" vs "What is 12 plus 7" scores 0.717, *below* the 0.85 default, so the
+  semantic level misses it entirely while the template level catches it exactly
+  and without a threshold.
+
+- **Threshold sensitivity curve** on every run: how many similar pairs would be
+  found at 0.80 / 0.85 / 0.90 / 0.95, and whether that count is stable. If it
+  is, the threshold is not load-bearing for your data; if it swings, you have
+  been told rather than left to assume. On the bundled example it is stable
+  (5, 5, 5, 4).
+
+- **Scenario weighting.** Per cluster: size, mean and range of pairwise
+  similarity, the share of aggregate weight it carries, excess weight from
+  redundancy, and a HIGH/MEDIUM/LOW band. The bands are conventions and the raw
+  share is always reported so you can apply your own; the limitations say the
+  principled anchor is the eval's own resolution.
+
+- **Field selection.** `compare` defaults to `input+expected`, because the same
+  question with two different reference answers is a ground-truth contradiction
+  rather than a duplicate and collapsing them would hide it.
+  `--compare input` restores the older input-only behaviour, and
+  `input+expected+metadata` is also available.
+
+- **Runs without the embeddings extra.** The three deterministic levels need no
+  model, so a core install still gets useful redundancy analysis. `levels_run`
+  reports which detectors were available, so a missing embedder narrows the
+  audit visibly rather than silently.
+
+- `CompareFields`, `RedundancyCheck`, `RedundancyLevel` exported. 32 exports,
+  up from 29.
+
+### Changed
+- The CLI now runs `RedundancyCheck` in place of `DuplicateCheck`, and the
+  report section is named `redundancy`. `--duplicate-threshold` keeps its name
+  and meaning; `--compare` is new.
+- No finding says a case is invalid, and a test asserts the absence of
+  "invalid", "bad case", "useless", "delete these" and similar. Every cluster
+  message ends by noting the redundancy may be intentional.
+
+- **`CheckResult.partial`** — reasons a check ran but could not run FULLY.
+  Additive, defaults empty, so existing checks are unaffected. The CLI treats a
+  non-empty `partial` exactly like a check that raised: exit 3, not 0.
+
+  This was needed because the upgrade would otherwise have LOOSENED the exit
+  contract. Previously a core install exited 3 because `DuplicateCheck` raised.
+  `RedundancyCheck` succeeds in degraded mode, which would have exited 0 — a
+  narrowed audit reporting a clean gate, the exact failure this project reports
+  in eval sets. `--skip-duplicates` still exits 0, because that is the caller
+  choosing scope rather than a capability being absent.
+
+### Compatibility
+- `DuplicateCheck` is unchanged and still exported, for anyone relying on
+  input-only semantic detection. Its 21 tests are untouched.
+- Two CLI tests monkeypatched `evallint.cli.DuplicateCheck` and were repointed.
+
+### Fixed
+- The embedder call previously caught bare `Exception` and degraded silently.
+  That swallowed a genuine bug during development and reported a narrower audit
+  as a complete one. Only `ImportError` degrades now; anything else propagates
+  and the CLI records the run as incomplete.
+
 ## [0.4.0] — 2026-08-22
 
 ### Changed
@@ -243,6 +326,7 @@ First release.
   `embedder=` callable instead.
 - Not an eval runner. It audits the dataset that eval runners consume.
 
+[0.5.0]: https://github.com/BhagyasriUddandam/evallint/releases/tag/v0.5.0
 [0.4.0]: https://github.com/BhagyasriUddandam/evallint/releases/tag/v0.4.0
 [0.3.0]: https://github.com/BhagyasriUddandam/evallint/releases/tag/v0.3.0
 [0.2.0]: https://github.com/BhagyasriUddandam/evallint/releases/tag/v0.2.0

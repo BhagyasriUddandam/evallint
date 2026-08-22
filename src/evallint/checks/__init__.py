@@ -17,9 +17,15 @@ from .separation import (
 from .duplicates import DuplicateCheck, Embedder, MissingEmbeddingsError
 from .imbalance import ImbalanceCheck
 from .leakage import LeakageCheck
+from .redundancy import (
+    CompareFields,
+    RedundancyCheck,
+    RedundancyLevel,
+)
 
 __all__ = [
     "CaseClass",
+    "CompareFields",
     "CaseSeparation",
     "Check",
     "CheckResult",
@@ -29,6 +35,8 @@ __all__ = [
     "Finding",
     "ImbalanceCheck",
     "LeakageCheck",
+    "RedundancyCheck",
+    "RedundancyLevel",
     "MissingEmbeddingsError",
     "Scorer",
     "ScorerError",

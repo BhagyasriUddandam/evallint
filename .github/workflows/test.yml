@@ -106,7 +106,8 @@ jobs:
       - name: Smoke-test the CLI, and assert a partial audit exits 3
         # This step used to be a bare `evallint examples/...` and it FAILED --
         # correctly. On a core install sentence-transformers is absent, so the
-        # duplicate check cannot load, so the run is a 1-of-2 audit and exits 3
+        # redundancy check runs its three deterministic levels but not its two
+        # semantic ones, and declares itself PARTIAL. A narrowed audit exits 3
         # by design: "I could not finish" must never be reported as "clean".
         # So assert the contract instead of dodging it. --skip-duplicates is the
         # documented way to choose this scope deliberately, and exits 0.
@@ -118,7 +119,7 @@ jobs:
           code=$?
           set -e
           if [ "$code" != "3" ]; then
-            echo "::error::a core install cannot run the duplicate check, so a bare run must exit 3 (incomplete audit); got $code"
+            echo "::error::a core install cannot run the semantic redundancy levels, so a bare run must exit 3 (partial audit); got $code"
             exit 1
           fi
           echo "confirmed: bare run exits 3, --skip-duplicates exits 0"

@@ -146,7 +146,7 @@ def test_duplicate_check_failure_does_not_lose_the_imbalance_result(
     def explode(self, eval_set):
         raise OSError("no network")
 
-    monkeypatch.setattr("evallint.cli.DuplicateCheck.run", explode)
+    monkeypatch.setattr("evallint.cli.RedundancyCheck.run", explode)
     result = run(str(EXAMPLE_SET))
 
     # The user still gets the check that succeeded...
@@ -238,7 +238,7 @@ def test_incomplete_audit_outranks_a_passing_gate(monkeypatch) -> None:
     def explode(self, eval_set):
         raise OSError("no network")
 
-    monkeypatch.setattr("evallint.cli.DuplicateCheck.run", explode)
+    monkeypatch.setattr("evallint.cli.RedundancyCheck.run", explode)
     result = run(str(EXAMPLE_SET), "--fail-on", "never")
 
     assert result.exit_code == 3

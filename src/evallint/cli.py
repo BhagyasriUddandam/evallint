@@ -28,7 +28,7 @@ from pathlib import Path
 import click
 from rich.console import Console
 
-from .checks import DuplicateCheck, ImbalanceCheck, LeakageCheck
+from .checks import CompareFields, ImbalanceCheck, LeakageCheck, RedundancyCheck
 from .checks.base import CheckResult
 from .checks.duplicates import DEFAULT_MODEL, DEFAULT_THRESHOLD
 from .config import ConfigError, find_config, load_config
@@ -119,6 +119,16 @@ def _gate(results: list[CheckResult], fail_on: str) -> tuple[int, str]:
     "limitations each check reports.",
 )
 @click.option(
+    "--compare",
+    type=click.Choice([f.value for f in CompareFields]),
+    default=CompareFields.INPUT_EXPECTED.value,
+    show_default=True,
+    help="Which fields the redundancy check compares. 'input' reproduces the "
+    "older input-only behaviour; the default also compares the expected answer, "
+    "because two cases with the same question and different answers are a "
+    "ground-truth contradiction rather than a duplicate.",
+)
+@click.option(
     "--map",
     "field_map",
     multiple=True,
@@ -157,6 +167,7 @@ def main(
     min_class_share: float,
     min_class_count: int,
     fail_on: str,
+    compare: str,
     field_map: tuple[str, ...],
     config_path: Path | None,
     no_config: bool,
@@ -255,7 +266,13 @@ def main(
     if skip_duplicates:
         notes.append("duplicates — skipped with --skip-duplicates")
     else:
-        check = DuplicateCheck(threshold=duplicate_threshold)
+        # RedundancyCheck supersedes DuplicateCheck: five levels rather than one
+        # cosine threshold, and the three deterministic ones need no model at
+        # all. DuplicateCheck remains exported and unchanged for anyone relying
+        # on input-only semantic detection.
+        check = RedundancyCheck(
+            threshold=duplicate_threshold, compare=CompareFields(compare)
+        )
         try:
             with status_console.status(
                 f"embedding {len(eval_set)} cases with {DEFAULT_MODEL} "
@@ -272,6 +289,13 @@ def main(
             # An explicit --skip-duplicates is not recorded, because the user
             # chose that scope deliberately.
             incomplete.append(f"duplicates: {exc}")
+
+    # A check that ran but could not run fully is treated exactly like one that
+    # raised: the audit is narrower than advertised, so it must not go green.
+    for result in results:
+        for reason in result.partial:
+            log.info("%s ran partially: %s", result.check, reason)
+            incomplete.append(f"{result.check}: {reason}")
 
     code, explanation = _gate(results, fail_on)
 

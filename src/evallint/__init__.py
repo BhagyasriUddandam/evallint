@@ -15,6 +15,7 @@ The four checks:
 
     ImbalanceCheck        class distribution, imbalance ratio, basic stats
     LeakageCheck          cases whose expected answer is in their own input
+    RedundancyCheck       redundancy at five levels, and scenario weighting
     DuplicateCheck        near-duplicate cases via embedding similarity
                           (needs the optional `evallint[embeddings]` extra, or
                           your own embedder)
@@ -44,7 +45,10 @@ from .checks import (
     Embedder,
     Finding,
     ImbalanceCheck,
+    CompareFields,
     LeakageCheck,
+    RedundancyCheck,
+    RedundancyLevel,
     MissingEmbeddingsError,
     Scorer,
     ScorerError,
@@ -91,7 +95,10 @@ __all__ = [
     "DuplicateCheck",
     "Finding",
     "ImbalanceCheck",
+    "CompareFields",
     "LeakageCheck",
+    "RedundancyCheck",
+    "RedundancyLevel",
     "Severity",
     # scorer / embedder contracts
     "Embedder",

@@ -64,6 +64,16 @@ class CheckResult:
         stats: The raw numbers behind the summary, for JSON output and for a
             user who wants to apply their own thresholds.
         limitations: What this check cannot tell you. Must not be empty.
+        partial: Reasons this check ran but could not run FULLY — e.g. an
+            optional detector whose dependency is absent. Empty means the check
+            did everything it claims to do.
+
+            This exists so a degraded check cannot report a clean gate. A check
+            that raises is already recorded as an incomplete audit; one that
+            quietly does less than advertised was not, and "some of the
+            analysis silently did not happen" is precisely the failure this
+            project reports in eval sets. The CLI treats a non-empty `partial`
+            the same as a raised check: exit 3, not 0.
     """
 
     check: str
@@ -71,10 +81,12 @@ class CheckResult:
     findings: tuple[Finding, ...] = ()
     stats: dict[str, Any] = field(default_factory=dict)
     limitations: tuple[str, ...] = ()
+    partial: tuple[str, ...] = ()
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "findings", tuple(self.findings))
         object.__setattr__(self, "limitations", tuple(self.limitations))
+        object.__setattr__(self, "partial", tuple(self.partial))
         if not self.limitations:
             raise ValueError(
                 f"check '{self.check}' returned no limitations: every check "
