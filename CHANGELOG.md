@@ -4,6 +4,36 @@ All notable changes to this project are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+- **`DiscriminationCheck(sample=N, sample_seed=0)`** — bound the cost of the only
+  expensive check. One API call per case per model per repeat meant a 1000-case
+  set was 2000 calls with no way to estimate it beforehand, so on any large set
+  the real choice was auditing everything or auditing nothing.
+
+  A sampled run cannot be mistaken for a full one: the summary leads with
+  `SAMPLE of 100 of 1319 cases` before any figure it qualifies, and the caveat is
+  prepended as the *first* limitation. A sampled audit that reads like a complete
+  one is precisely the overclaim this project exists to report.
+- `docs/findings-gsm8k.md` — the discrimination check run against a public
+  benchmark rather than the author's own example set. **98% of 100 GSM8K cases
+  cannot separate Haiku 4.5 from Opus 5**, scored with no LLM judge (GSM8K
+  answers end in `#### n`, so grading is numeric). All 800 API responses are
+  committed, so the result recomputes for $0.00.
+- README: documents `sample`, `sample_seed`, `pass_threshold` and
+  `max_non_discriminating_share`, which were public parameters with no public
+  documentation.
+- `tests/test_docs_match_reality.py` — asserts the README's test count matches
+  the suite, and that every keyword-only parameter of `DiscriminationCheck` is
+  mentioned in the README. Both invariants had already gone stale once; the
+  count was caught only by reading the published PyPI page, which cannot be
+  edited after release.
+
+### Fixed
+- The README again claimed a stale test count. Now enforced by a test rather
+  than by remembering.
+
 ## [0.1.1] — 2026-08-22
 
 Documentation only. No code changes, so 0.1.0 remains functionally identical --

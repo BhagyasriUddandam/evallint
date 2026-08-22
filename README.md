@@ -301,6 +301,49 @@ DiscriminationCheck(score, models, repeats=3, max_workers=16).run(eval_set)
 > until you opt in. If a concurrent run disagrees with a serial run on the same data,
 > suspect the scorer before the eval set.
 
+**Bound the cost with `sample`.** This is the only expensive check, so on a large set the
+real choice is often between auditing a sample and not auditing at all:
+
+```python
+DiscriminationCheck(score, models, sample=100, sample_seed=0).run(eval_set)
+```
+
+`sample_seed` makes the draw reproducible, so a re-run compares against the same cases
+instead of a fresh subset. A sampled run says so everywhere it could be mistaken for a
+full one — the summary leads with it, and it is the *first* limitation reported:
+
+```
+SAMPLE of 100 of 1319 cases x 2 models: 4 discriminate, 96 do not (96%)
+
+  · Only 100 of 1319 cases were scored (random sample, seed 0). Every figure
+    above describes THAT SAMPLE, not your eval set. A clean sample does not mean
+    a clean set, and a broken case that was not drawn is not reported here —
+    absence of a finding is not evidence.
+```
+
+**The remaining two knobs.** `pass_threshold` (default `0.5`) is the score at or above
+which a float scorer counts as a pass; it is ignored for bool scorers.
+`max_non_discriminating_share` (default `0.5`) is the share of measured cases above which
+the check warns.
+
+### Does this check actually find anything?
+
+Yes, on a benchmark this project did not write. Run against **100 GSM8K cases** with
+Haiku 4.5 and Opus 5, three repeats, and **no LLM judge** — GSM8K answers end in `#### n`,
+so grading is a numeric comparison nobody has to trust:
+
+```
+100 cases x 2 models x 3 repeats: 2 discriminate, 95 do not (98%), 3 not reproducible
+```
+
+98% of a widely-cited reasoning benchmark carries no evidence about which of those two
+models is better. Both sit at the ceiling: 98.0% and 98.7%. Repeats also killed one of
+the two inversions a single run reported, which is exactly why the check refuses to
+classify unstable cases.
+
+Full write-up, including what it does **not** show: [docs/findings-gsm8k.md](docs/findings-gsm8k.md).
+All 800 API responses are committed, so the numbers recompute for $0.00.
+
 ## Example output
 
 Real output from `evallint examples/sample_evalset.jsonl` against the bundled
@@ -426,7 +469,7 @@ runner.
 ## Development
 
 ```bash
-uv run pytest    # 269 tests
+uv run pytest    # 295 tests
 ```
 
 Every check is tested both ways: it must **fire on known-bad input** and **stay quiet on
