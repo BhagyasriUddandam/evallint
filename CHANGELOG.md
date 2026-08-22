@@ -4,6 +4,72 @@ All notable changes to this project are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.10.0] — 2026-08-22
+
+### Added
+- **`estimate_effective_size`** — distinguishes the raw number of cases from the
+  approximately independent information they contain, using the redundancy
+  check's clustering.
+
+      Raw cases: 500
+      Semantic clusters: 396
+      Large clusters (>= 3 cases): 27
+      Potential redundancy: 21%
+      Redundancy-adjusted scenario coverage: ~396 distinct scenarios
+                                             (estimate; plausible range 396-500)
+      Design effect: 1.26 -- intervals computed on 500 cases are roughly
+                            1.12x too narrow
+
+- **It is NOT presented as a statistical effective sample size**, because the
+  method does not support that claim. The terminology throughout is
+  "redundancy-adjusted coverage", "effective scenario count" and
+  "independent-case estimate", and the output states in capitals that it is an
+  estimate.
+
+  The reasoning is disclosed rather than buried. Kish's effective sample size
+
+      n_eff = (sum w_i)^2 / sum w_i^2
+
+  reduces to exactly the cluster count when each case is weighted by the inverse
+  of its cluster size -- but only BECAUSE that weighting assumes within-cluster
+  correlation of 1. Two paraphrases are not perfectly redundant: a model can
+  pass one and fail the other. The reduction is an assumption, not a derivation,
+  and a test asserts that the caveat saying so is present.
+
+- **The result is a bracket, not a number.** Lower bound = cluster count
+  (assumes rho = 1), upper bound = raw count (assumes rho = 0), truth between.
+  The lower bound is the headline because it cannot flatter the eval.
+
+- **Design effect** as the actionable output: the factor by which intervals
+  computed on the raw count are too narrow. A `compare_models` interval should
+  be widened by roughly its square root when the eval has clusters, since every
+  interval in this library assumes independent cases.
+
+- **Threshold sensitivity**, with the embedder memoised so four thresholds cost
+  one embedding pass rather than four. A test asserts the embedder is called
+  exactly once.
+
+- `estimate_from_clusters` is pure and takes cluster sizes, so the whole
+  analysis is testable with no model at all. 38 exports, up from 37.
+
+### Measured on the four scenarios
+      fully unique      raw=12  scenarios=12  redundancy= 0%  DEFF= 1.00
+      exact duplicates  raw=12  scenarios= 9  redundancy=25%  DEFF= 1.33
+      highly redundant  raw=20  scenarios= 2  redundancy=90%  DEFF=10.00
+      templated         raw=12  scenarios= 2  redundancy=83%  DEFF= 6.00
+
+The templated case needs no embedder: the template detector is exact.
+
+### Tests
+22 new, covering all four required scenarios plus the terminology constraints --
+that the output refuses the effective-sample-size claim, that the Kish reduction
+is disclosed as an assumption, that the connected-components bias is declared as
+running in the CONSERVATIVE direction, and that nothing describes redundancy as
+a defect.
+
+One test arithmetic error was corrected after running it: clusters of 3 and 2
+over 20 cases leave 15 singletons, so 17 scenarios rather than 16.
+
 ## [0.9.0] — 2026-08-22
 
 ### Added
@@ -570,6 +636,7 @@ First release.
   `embedder=` callable instead.
 - Not an eval runner. It audits the dataset that eval runners consume.
 
+[0.10.0]: https://github.com/BhagyasriUddandam/evallint/releases/tag/v0.10.0
 [0.9.0]: https://github.com/BhagyasriUddandam/evallint/releases/tag/v0.9.0
 [0.8.0]: https://github.com/BhagyasriUddandam/evallint/releases/tag/v0.8.0
 [0.7.0]: https://github.com/BhagyasriUddandam/evallint/releases/tag/v0.7.0

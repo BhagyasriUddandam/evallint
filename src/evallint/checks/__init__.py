@@ -21,6 +21,11 @@ from .separation import (
 from .duplicates import DuplicateCheck, Embedder, MissingEmbeddingsError
 from .imbalance import ImbalanceCheck
 from .agreement import cohens_kappa, fleiss_kappa, pairwise_agreement, raw_agreement
+from .effective_size import (
+    EffectiveSizeEstimate,
+    estimate_effective_size,
+    estimate_from_clusters,
+)
 from .evaluator_reliability import (
     EvaluatorReliability,
     JudgeObservation,
@@ -61,6 +66,7 @@ __all__ = [
     "Embedder",
     "Finding",
     "ImbalanceCheck",
+    "EffectiveSizeEstimate",
     "EvaluatorReliability",
     "GroundTruthCheck",
     "JudgeObservation",
@@ -98,6 +104,8 @@ __all__ = [
     # model comparison
     "cohens_g",
     "compare_models",
+    "estimate_effective_size",
+    "estimate_from_clusters",
     "holm_adjust",
     "mcnemar_odds_ratio",
     "paired_bootstrap_difference",

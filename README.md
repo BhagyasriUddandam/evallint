@@ -26,6 +26,50 @@ reference answer and grader before blaming difficulty), and `inverted` (a *weake
 passed where a stronger one failed — usually a broken reference answer, and worth more
 than either).
 
+**Redundancy-adjusted coverage — raw cases versus distinct scenarios.** An eval
+advertising 500 cases may contain 312 scenarios, and an averaged score gives every
+case equal weight, so a scenario appearing eight times counts eight times.
+
+```python
+from evallint import estimate_effective_size
+print(estimate_effective_size(eval_set).render())
+```
+
+```
+Raw cases: 500
+Semantic clusters: 396
+Large clusters (>= 3 cases): 27
+Potential redundancy: 21%
+Redundancy-adjusted scenario coverage: ~396 distinct scenarios
+                                       (estimate; plausible range 396-500)
+Design effect: 1.26 — intervals computed on 500 cases are roughly 1.12x too narrow
+
+THIS IS AN ESTIMATE, NOT A STATISTICAL EFFECTIVE SAMPLE SIZE.
+```
+
+**That last line is load-bearing.** Kish's effective sample size reduces to
+exactly the cluster count when each case is weighted by the inverse of its
+cluster size — but that reduction holds *because the weighting assumes
+within-cluster correlation of 1*. Two paraphrases are not perfectly redundant: a
+model can pass one and fail the other. So the reduction is an assumption, not a
+derivation, and the result is reported as a **bracket**:
+
+| bound | assumes |
+|---|---|
+| cluster count (headline) | cases in a cluster are perfectly redundant, ρ = 1 |
+| raw case count | every case is independent, ρ = 0 |
+
+The truth is between. The lower bound leads because it is the one that cannot
+flatter the eval.
+
+The **design effect** is the actionable output: it is the factor by which
+intervals computed on the raw count are too narrow. A `compare_models` interval
+should be widened by roughly its square root when the eval has clusters —
+every interval in this library assumes independent cases.
+
+Threshold sensitivity is reported too, so you can see whether the estimate is
+threshold-dependent for *your* data rather than assuming.
+
 **Model comparison, paired and honest about it.** Cases are paired across
 models, so the tests are paired — only the *discordant* cases carry information
 about which model is better, and independent-sample tests would throw the
@@ -767,7 +811,7 @@ runner.
 ## Development
 
 ```bash
-uv run pytest    # 564 tests
+uv run pytest    # 586 tests
 ```
 
 Every check is tested both ways: it must **fire on known-bad input** and **stay quiet on
