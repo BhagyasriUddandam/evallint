@@ -13,3 +13,7 @@ docs/interview-prep.md
 
 # Build logs — useful locally, not part of the product
 tasks/
+
+# coverage artefacts
+.coverage
+htmlcov/
