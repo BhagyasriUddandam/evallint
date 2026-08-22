@@ -81,6 +81,15 @@ SYSTEM = (
     "symbol."
 )
 
+# None means "omit output_config", so each model runs at ITS OWN default.
+# The first run capped Opus at effort=low while Haiku ran uncapped, and Opus
+# produced less than half the reasoning tokens (73 vs 162 mean). The 2
+# inversions that run found were therefore measuring a handicap I imposed, not
+# a capability gap -- the same shape as the model-pair finding already
+# retracted in this project. Haiku REJECTS output_config.effort, so equalising
+# upward is impossible; equalising by omission is the only fair option.
+EFFORT: str | None = None
+
 _MARKER = re.compile(r"ANSWER:\s*\$?\s*(-?[\d,]+(?:\.\d+)?)", re.IGNORECASE)
 _REFERENCE = re.compile(r"####\s*(-?[\d,]+(?:\.\d+)?)")
 
@@ -140,13 +149,19 @@ def make_scorer(cache: ResponseCache, client, verbose: bool):
         # Every input that changes the answer is in the key. Omitting the
         # system prompt here was a real bug earlier in this project: it served
         # answers from a previous prompt and looked fine.
-        key = {"model": model, "system": SYSTEM, "prompt": case.input}
+        # `effort` is in the key because it CHANGES THE ANSWER. Leaving it out
+        # would serve the previous run's effort=low responses to this run and
+        # report them as the fair-footing result -- a stale-cache lie, and the
+        # exact bug already recorded in tasks/lessons.md.
+        key = {"model": model, "system": SYSTEM, "prompt": case.input,
+               "effort": EFFORT}
         if n:
             key["attempt"] = n
 
         record = cache.get_or_call(
             key,
-            lambda: call_model(client, model, SYSTEM, case.input),
+            lambda: call_model(client, model, SYSTEM, case.input,
+                               effort=EFFORT),
         )
         got = _number(record["text"], _MARKER, "ANSWER: line")
         want = _number(case.expected, _REFERENCE, "#### reference")
@@ -249,7 +264,7 @@ def main() -> int:
             # Price ONLY these two calls. The cache may already hold a full
             # run, and pricing all of it made the estimate 100x too high.
             used.append(cache.get({"model": model, "system": SYSTEM,
-                                   "prompt": case.input}))
+                                   "prompt": case.input, "effort": EFFORT}))
         smoke = cost_of_records([r for r in used if r])
         total = sum(t["usd"] for t in smoke.values())
         print("\n  cost of THESE 2 calls only:")

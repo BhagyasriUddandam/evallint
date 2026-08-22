@@ -74,7 +74,11 @@ def make_client(
     return anthropic.Anthropic(timeout=timeout, max_retries=max_retries)
 
 
-def request_kwargs(model: str, temperature: float | None = None) -> dict[str, Any]:
+def request_kwargs(
+    model: str,
+    temperature: float | None = None,
+    effort: str | None = "low",
+) -> dict[str, Any]:
     """Per-model request parameters. The knobs are not the same on every model.
 
     Three real differences, each of which would be a runtime error or silent
@@ -86,11 +90,19 @@ def request_kwargs(model: str, temperature: float | None = None) -> dict[str, An
       - `temperature` is rejected outright by the Claude 5 family and Opus
         4.7/4.8. Rather than let that surface as a 400 partway through a paid
         run, refuse before the first call.
+
+    `effort=None` omits output_config entirely, which is the only way to
+    compare two models on equal footing here. Haiku REJECTS
+    output_config.effort, so effort cannot be raised on Haiku to match a
+    capped Opus — the capped run measured a handicap rather than a capability
+    gap, and the fix is to let both models use their own defaults.
     """
     if model.startswith("claude-haiku"):
         kwargs: dict[str, Any] = {"max_tokens": 1000}
+    elif effort is None:
+        kwargs = {"max_tokens": 4000}
     else:
-        kwargs = {"max_tokens": 4000, "output_config": {"effort": "low"}}
+        kwargs = {"max_tokens": 4000, "output_config": {"effort": effort}}
 
     if temperature is not None:
         if not supports_temperature(model):
@@ -112,6 +124,7 @@ def call_model(
     system: str,
     prompt: str,
     temperature: float | None = None,
+    effort: str | None = "low",
 ) -> dict[str, Any]:
     """One request. Returns the record shape the shared cache stores."""
     try:
@@ -119,7 +132,7 @@ def call_model(
             model=model,
             system=system,
             messages=[{"role": "user", "content": prompt}],
-            **request_kwargs(model, temperature),
+            **request_kwargs(model, temperature, effort),
         )
     except anthropic.APITimeoutError as exc:
         # Already retried MAX_RETRIES times by the SDK before landing here.

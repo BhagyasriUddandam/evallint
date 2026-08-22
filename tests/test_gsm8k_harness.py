@@ -87,14 +87,22 @@ def test_each_repeat_gets_a_distinct_cache_key() -> None:
     assert [k.get("attempt") for k in cache.keys] == [None, 1, 2]
 
 
-def test_attempt_zero_omits_the_field_so_existing_cache_stays_valid() -> None:
-    """The first attempt must key exactly as it did before the fix, or the
-    responses already bought on disk are silently abandoned and re-paid."""
+def test_attempt_zero_omits_the_attempt_field() -> None:
+    """The first attempt must not carry `attempt: 0`, so responses already on
+    disk from a same-config run are reused rather than re-bought."""
     cache = SpyCache()
     gsm8k.make_scorer(cache, client=None, verbose=False)(CASE, "model-a")
     assert cache.keys == [
-        {"model": "model-a", "system": gsm8k.SYSTEM, "prompt": CASE.input}
+        {
+            "model": "model-a",
+            "system": gsm8k.SYSTEM,
+            "prompt": CASE.input,
+            # effort IS in the key: it changes the answer, so a run at a
+            # different effort must not be served the previous run's responses.
+            "effort": gsm8k.EFFORT,
+        }
     ]
+    assert "attempt" not in cache.keys[0]
 
 
 def test_attempt_counter_is_per_case_and_per_model() -> None:
