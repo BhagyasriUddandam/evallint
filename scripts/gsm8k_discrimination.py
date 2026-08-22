@@ -46,7 +46,12 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from _anthropic_backend import call_model, make_client  # noqa: E402
+# _anthropic_backend is imported INSIDE the functions that call it, not here.
+# It imports the anthropic SDK, which is a dev-only dependency: the four CI
+# jobs that install the core package alone would fail to even collect this
+# module's tests. Deferring it means the harness is importable -- and its
+# parsing and cost arithmetic fully testable -- with no provider SDK present,
+# which is the same reason the shipped library never imports one either.
 from _cache import ResponseCache  # noqa: E402
 from _env import load_env_file  # noqa: E402
 
@@ -142,6 +147,8 @@ def make_scorer(cache: ResponseCache, client, verbose: bool):
     counter_lock = threading.Lock()
 
     def score(case, model: str) -> bool:
+        from _anthropic_backend import call_model
+
         with counter_lock:
             n = attempts.get((case.id, model), 0)
             attempts[(case.id, model)] = n + 1
@@ -245,6 +252,8 @@ def main() -> int:
     print(f"  loaded {len(eval_set)} cases from {DATA.name}")
     for line in mapping.explain():
         print(f"    {line}")
+
+    from _anthropic_backend import make_client
 
     cache = ResponseCache(CACHE)
     client = make_client()

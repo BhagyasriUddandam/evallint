@@ -197,3 +197,34 @@ def test_unknown_model_costs_zero_rather_than_crashing() -> None:
             return [{"model": "some-new-model", "usage": {"input": 5, "output": 5}}]
 
     assert gsm8k.cost_of(Cache())["some-new-model"]["usd"] == 0.0
+
+
+# --- the CI constraint, encoded ------------------------------------------
+
+
+def test_the_sdk_is_not_imported_at_module_scope() -> None:
+    """REGRESSION. A module-level `from _anthropic_backend import ...` pulls in
+    the anthropic SDK, which is a dev-only dependency. That broke all four CI
+    jobs that install the core package alone -- they could not even COLLECT
+    this file. Deferring the import into the functions that call it keeps the
+    harness importable, and every test here runnable, with no provider SDK
+    present. This asserts it statically so the regression fails locally.
+    """
+    import ast
+
+    tree = ast.parse((SCRIPTS / "gsm8k_discrimination.py").read_text())
+    top_level: list[str] = []
+    for node in tree.body:  # module scope only, not function bodies
+        if isinstance(node, ast.Import):
+            top_level += [a.name for a in node.names]
+        elif isinstance(node, ast.ImportFrom) and node.module:
+            top_level.append(node.module)
+
+    offenders = [
+        n for n in top_level
+        if n == "anthropic" or n.startswith("_anthropic_backend")
+    ]
+    assert not offenders, (
+        f"{offenders} imported at module scope; import it inside the function "
+        "that needs it, or the core-only CI jobs cannot collect these tests"
+    )
