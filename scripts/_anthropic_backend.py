@@ -127,6 +127,22 @@ def call_model(
             f"{model} timed out after {MAX_RETRIES + 1} attempts of "
             f"{REQUEST_TIMEOUT_S:.0f}s"
         ) from exc
+    except anthropic.AuthenticationError as exc:
+        # Was an unhandled traceback until a 401 landed mid-smoke-test. A bad
+        # key is the most likely first failure of any run on a new machine, so
+        # it should read as one line of instruction rather than 40 lines of SDK
+        # internals with the real cause on the last of them.
+        raise RuntimeError(
+            f"ANTHROPIC_API_KEY was rejected (401) calling {model}. The key is "
+            f"present but not valid — check for a revoked or rotated key, a "
+            f"stale value in .env, or leading/trailing whitespace. Nothing was "
+            f"charged."
+        ) from exc
+    except anthropic.PermissionDeniedError as exc:
+        raise RuntimeError(
+            f"ANTHROPIC_API_KEY lacks access to {model} (403). The key is valid "
+            f"but this model is not enabled for it."
+        ) from exc
     except anthropic.APIConnectionError as exc:
         raise RuntimeError(f"{model} could not be reached: {exc}") from exc
     except anthropic.RateLimitError as exc:

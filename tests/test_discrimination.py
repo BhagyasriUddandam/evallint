@@ -8,6 +8,8 @@ of the injected-scorer design. What is under test is the verdict TAXONOMY
 
 from __future__ import annotations
 
+import threading
+
 import numpy as np
 import pytest
 
@@ -734,3 +736,120 @@ def test_thread_safety_requirement_is_stated_in_the_limitations() -> None:
     text = " ".join(result.limitations)
     assert "thread-safe" in text
     assert "corrupts results quietly" in text
+
+
+# --------------------------------------------------------------------------
+# sample: bounding the cost of the only expensive check
+# --------------------------------------------------------------------------
+
+
+def test_sample_bounds_the_call_count_exactly() -> None:
+    """The whole point of sampling is a cost ceiling you can predict, so the
+    call count is asserted exactly rather than approximately."""
+    eval_set = make_set([f"c{i}" for i in range(100)])
+    calls = []
+
+    def counting(case: EvalCase, model: str) -> bool:
+        calls.append((case.id, model))
+        return model == STRONG
+
+    result = DiscriminationCheck(
+        counting, [WEAK, STRONG], sample=10, repeats=3
+    ).run(eval_set)
+
+    # 10 cases x 2 models x 3 repeats, and not one call more.
+    assert len(calls) == 60
+    assert result.stats["n_scorer_calls"] == 60
+    assert len({c for c, _ in calls}) == 10
+
+
+def test_sample_is_reproducible_for_a_given_seed() -> None:
+    eval_set = make_set([f"c{i}" for i in range(50)])
+
+    def which(seed: int) -> list[str]:
+        seen: list[str] = []
+        DiscriminationCheck(
+            lambda c, m: (seen.append(c.id) if m == WEAK else None) or m == STRONG,
+            [WEAK, STRONG],
+            sample=8,
+            sample_seed=seed,
+        ).run(eval_set)
+        return seen
+
+    assert which(0) == which(0)          # same seed -> same cases
+    assert which(0) != which(1)          # different seed -> different cases
+
+
+def test_sample_keeps_file_order_so_output_is_stable() -> None:
+    eval_set = make_set([f"c{i}" for i in range(30)])
+    seen: list[str] = []
+    DiscriminationCheck(
+        lambda c, m: (seen.append(c.id) if m == WEAK else None) or True,
+        [WEAK, STRONG],
+        sample=6,
+    ).run(eval_set)
+    order = [int(c[1:]) for c in seen]
+    assert order == sorted(order), "sampled cases must stay in file order"
+
+
+def test_sample_larger_than_the_set_scores_everything_without_erroring() -> None:
+    """A script that asks for 200 of 100 cases is being reasonable, not wrong."""
+    eval_set = make_set([f"c{i}" for i in range(5)])
+    result = DiscriminationCheck(
+        lambda c, m: m == STRONG, [WEAK, STRONG], sample=200
+    ).run(eval_set)
+    assert result.stats["n_cases"] == 5
+    assert result.stats["sampled"] is False
+
+
+def test_sample_none_is_unchanged() -> None:
+    eval_set = make_set([f"c{i}" for i in range(7)])
+    a = DiscriminationCheck(lambda c, m: m == STRONG, [WEAK, STRONG]).run(eval_set)
+    b = DiscriminationCheck(
+        lambda c, m: m == STRONG, [WEAK, STRONG], sample=None
+    ).run(eval_set)
+    assert a.stats == b.stats
+    assert a.summary == b.summary
+    assert a.limitations == b.limitations
+
+
+def test_a_sampled_run_can_never_look_like_a_full_audit() -> None:
+    """The honesty requirement. A sampled result that reads like a complete one
+    is the exact overclaim this project exists to report, so the sample must be
+    visible in the summary, the stats AND the limitations."""
+    eval_set = make_set([f"c{i}" for i in range(100)])
+    result = DiscriminationCheck(
+        lambda c, m: m == STRONG, [WEAK, STRONG], sample=10
+    ).run(eval_set)
+
+    assert result.summary.startswith("SAMPLE of 10 of 100 cases")
+    assert result.stats["sampled"] is True
+    assert result.stats["n_cases"] == 10
+    assert result.stats["n_cases_in_set"] == 100
+    assert result.stats["sample_seed"] == 0
+    first = result.limitations[0]
+    assert "10 of 100" in first
+    assert "not evidence" in first
+
+
+def test_sample_must_be_positive() -> None:
+    with pytest.raises(ValueError, match="sample must be at least 1"):
+        DiscriminationCheck(lambda c, m: True, [WEAK, STRONG], sample=0)
+
+
+def test_sample_composes_with_workers_and_repeats() -> None:
+    eval_set = make_set([f"c{i}" for i in range(40)])
+    lock = threading.Lock()
+    calls = []
+
+    def counting(case: EvalCase, model: str) -> bool:
+        with lock:
+            calls.append(case.id)
+        return model == STRONG
+
+    result = DiscriminationCheck(
+        counting, [WEAK, STRONG], sample=12, repeats=2, max_workers=4
+    ).run(eval_set)
+    assert len(calls) == 12 * 2 * 2
+    assert result.stats["n_cases"] == 12
+    assert result.stats["n_measured"] == 12

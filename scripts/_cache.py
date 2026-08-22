@@ -104,5 +104,10 @@ class ResponseCache:
         """Read-only lookup, for reporting tools that must never call out."""
         return self._data.get(cache_key(key_parts))
 
+    def values(self):
+        """Every stored record. Used to total real token usage after a run."""
+        with self._lock:
+            return list(self._data.values())
+
     def __len__(self) -> int:
         return len(self._data)

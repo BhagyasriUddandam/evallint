@@ -28,6 +28,7 @@ stack and the tests need no API key.
 
 from __future__ import annotations
 
+import random
 from collections.abc import Callable, Sequence
 from concurrent.futures import ThreadPoolExecutor
 from typing import Any
@@ -94,6 +95,8 @@ class DiscriminationCheck(Check):
         max_non_discriminating_share: float = 0.5,
         repeats: int = 1,
         max_workers: int = 1,
+        sample: int | None = None,
+        sample_seed: int = 0,
     ) -> None:
         """
         Args:
@@ -130,6 +133,27 @@ class DiscriminationCheck(Check):
                 scorer is your code, and a client object, a shared session, a
                 file handle or a non-locking cache inside it will corrupt
                 quietly rather than crash. Opt in once you have checked.
+            sample: Score only this many cases, chosen at random, instead of
+                all of them. This check is the only expensive one — every case
+                costs a real API call per model per repeat — so on a large set
+                the choice is often between auditing a sample and not auditing
+                at all.
+
+                The cost is that findings then describe the sample, NOT the
+                set: a clean sample does not mean a clean eval set, and a
+                specific bad case that was not drawn will not be reported. That
+                is stated in the limitations of every sampled run, and the
+                summary says so too, because a sampled audit that reads like a
+                full one is exactly the kind of quiet overclaim this project
+                exists to catch.
+
+                None (default) scores everything. A value at or above the case
+                count also scores everything, and is not an error — asking for
+                200 of 100 cases is a reasonable thing for a script to do.
+            sample_seed: Seed for the sample, so the same set and seed always
+                draw the same cases. Sampling that changed between runs would
+                make a re-run non-comparable and, with a response cache, would
+                quietly cost money every time.
         """
         if len(models) < 2:
             raise ValueError(
@@ -145,6 +169,8 @@ class DiscriminationCheck(Check):
             raise ValueError(f"repeats must be at least 1, got {repeats}")
         if max_workers < 1:
             raise ValueError(f"max_workers must be at least 1, got {max_workers}")
+        if sample is not None and sample < 1:
+            raise ValueError(f"sample must be at least 1 or None, got {sample}")
         self.scorer = scorer
         self.models = tuple(models)
         self.model_names = tuple(labels)
@@ -152,9 +178,25 @@ class DiscriminationCheck(Check):
         self.max_non_discriminating_share = max_non_discriminating_share
         self.repeats = repeats
         self.max_workers = max_workers
+        self.sample = sample
+        self.sample_seed = sample_seed
+
+    def _select(self, cases: list) -> tuple[list, bool]:
+        """Pick the cases to score. Returns (cases, was_sampled)."""
+        if self.sample is None or self.sample >= len(cases):
+            return cases, False
+        # Sample INDICES and sort them, rather than using the shuffled order
+        # random.sample returns. The subset is identical either way, but keeping
+        # file order means the report lists cases in the order the user wrote
+        # them, and two runs with the same seed produce byte-identical output.
+        chosen = sorted(
+            random.Random(self.sample_seed).sample(range(len(cases)), self.sample)
+        )
+        return [cases[i] for i in chosen], True
 
     def run(self, eval_set: EvalSet) -> CheckResult:
-        cases = list(eval_set)
+        all_cases = list(eval_set)
+        cases, sampled = self._select(all_cases)
         # runs[case.id][model_index] -> tuple of `repeats` verdicts
         runs = self._score_all(cases)
 
@@ -186,7 +228,14 @@ class DiscriminationCheck(Check):
         share = non_discriminating / n_measured if n_measured else 0.0
 
         stats = {
+            # n_cases is the number actually SCORED, so it stays consistent with
+            # n_scorer_calls and every derived figure. n_cases_in_set is the
+            # whole set, and the two differing is the signal that this was a
+            # sample.
             "n_cases": n_cases,
+            "n_cases_in_set": len(all_cases),
+            "sampled": sampled,
+            "sample_seed": self.sample_seed if sampled else None,
             "models": list(self.model_names),
             "repeats": self.repeats,
             "max_workers": self.max_workers,
@@ -279,18 +328,31 @@ class DiscriminationCheck(Check):
         findings.extend(self._sanity_findings(stats, non_discriminating, n_measured))
 
         summary = (
-            f"{n_cases} cases x {len(self.models)} models"
+            # Lead with the sample, before any number it qualifies. A reader who
+            # stops after the first clause must still know this is a subset.
+            (f"SAMPLE of {n_cases} of {len(all_cases)} cases" if sampled
+             else f"{n_cases} cases")
+            + f" x {len(self.models)} models"
             + (f" x {self.repeats} repeats" if self.repeats > 1 else "")
             + f": {n_measured - non_discriminating} discriminate, "
             f"{non_discriminating} do not ({share:.0%})"
             + (f", {len(unstable)} not reproducible" if unstable else "")
         )
+        limitations = LIMITATIONS
+        if sampled:
+            limitations = (
+                f"Only {n_cases} of {len(all_cases)} cases were scored "
+                f"(random sample, seed {self.sample_seed}). Every figure above "
+                f"describes THAT SAMPLE, not your eval set. A clean sample does "
+                f"not mean a clean set, and a broken case that was not drawn is "
+                f"not reported here — absence of a finding is not evidence.",
+            ) + LIMITATIONS
         return CheckResult(
             check=self.name,
             summary=summary,
             findings=tuple(findings),
             stats=stats,
-            limitations=LIMITATIONS,
+            limitations=limitations,
         )
 
     def _sanity_findings(
