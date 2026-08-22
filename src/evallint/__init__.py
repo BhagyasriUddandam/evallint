@@ -11,9 +11,10 @@ consumes, for three failure modes that make a score misleading.
     >>> result.limitations          # every check states what it cannot tell you
     (...)
 
-The three checks:
+The four checks:
 
     ImbalanceCheck        class distribution, imbalance ratio, basic stats
+    LeakageCheck          cases whose expected answer is in their own input
     DuplicateCheck        near-duplicate cases via embedding similarity
                           (needs the optional `evallint[embeddings]` extra, or
                           your own embedder)
@@ -39,6 +40,7 @@ from .checks import (
     Embedder,
     Finding,
     ImbalanceCheck,
+    LeakageCheck,
     MissingEmbeddingsError,
     Scorer,
     ScorerError,
@@ -84,6 +86,7 @@ __all__ = [
     "DuplicateCheck",
     "Finding",
     "ImbalanceCheck",
+    "LeakageCheck",
     "Severity",
     # scorer / embedder contracts
     "Embedder",

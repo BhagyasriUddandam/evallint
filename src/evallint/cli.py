@@ -28,7 +28,7 @@ from pathlib import Path
 import click
 from rich.console import Console
 
-from .checks import DuplicateCheck, ImbalanceCheck
+from .checks import DuplicateCheck, ImbalanceCheck, LeakageCheck
 from .checks.base import CheckResult
 from .checks.duplicates import DEFAULT_MODEL, DEFAULT_THRESHOLD
 from .config import ConfigError, find_config, load_config
@@ -235,11 +235,14 @@ def main(
         "duplicate_threshold=%s fail_on=%s",
         min_class_share, min_class_count, duplicate_threshold, fail_on,
     )
-    log.info("running imbalance on %d cases", len(eval_set))
+    log.info("running imbalance and leakage on %d cases", len(eval_set))
+    # Both are pure text analysis: no model, no network, no optional extra. They
+    # always run, which is why they are the ones a new user actually tries.
     results = [
         ImbalanceCheck(
             min_class_share=min_class_share, min_class_count=min_class_count
-        ).run(eval_set)
+        ).run(eval_set),
+        LeakageCheck().run(eval_set),
     ]
     notes = [DISCRIMINATION_NOTE]
     # Always surface a non-identity mapping. A silently wrong column choice

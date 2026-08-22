@@ -17,6 +17,9 @@ Anyone maintaining an LLM eval set: ML engineers, applied AI teams, anyone who h
 "my eval says 95% but the model is clearly worse than that in production."
 
 ## v1 scope — exactly three checks (deliberately limited)
+
+> Historical: this is the v1 design. A fourth check, label leakage, shipped
+> in 0.3.0. See README.md for what the tool does now.
 Excellence beats breadth. Three checks done flawlessly, then iterate. "I scoped it and
 shipped, then expanded" is itself a senior signal.
 
@@ -92,7 +95,7 @@ Each check gets a test proving it fires on a known-bad input and stays quiet on 
 one. The `examples/sample_evalset.jsonl` doubles as a live demo and a fixture.
 
 ## v1 definition of done
-- `evallint examples/sample_evalset.jsonl` runs all three checks and prints a clean report.
+- `evallint examples/sample_evalset.jsonl` runs the checks that need no model and prints a clean report.
 - `pytest` green.
 - README with the pitch, install, usage, an example report, and an honest "what this does
   NOT do" section.

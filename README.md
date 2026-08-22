@@ -40,6 +40,15 @@ small to move the aggregate, or its **count** is too small for its own accuracy 
 anything — so both are checked. In a 10,000-case set a 1% class still has 100 cases and is
 perfectly measurable; in a 20-case set a 5% class has one.
 
+**Label leakage.** Flags cases whose `expected` answer appears verbatim in their own
+`input`. Those cases don't need the capability under test — the answer is sitting in the
+prompt — so they inflate the score while measuring reading. Deliberately quiet: token
+overlap between an answer and its question was measured and **discarded as a signal**,
+because on GSM8K it reaches 1.00 with no leakage at all (the reference answer restates the
+question). Short answers and small closed label vocabularies are skipped, and a set where
+*most* cases contain their answer is reported once as probable extractive QA rather than
+as hundreds of warnings. Zero false positives across GSM8K, MMLU, TruthfulQA and HellaSwag.
+
 ## Install
 
 Requires Python 3.12+.
@@ -350,6 +359,7 @@ Real output from `evallint examples/sample_evalset.jsonl` against the bundled
 [deliberately flawed example set](examples/README.md), at an 88-column terminal:
 
 ```
+
 evallint  examples/sample_evalset.jsonl
 
 imbalance
@@ -366,6 +376,9 @@ imbalance
         only 1 case, so its accuracy can only land on 2 distinct values
         bug_001
 
+leakage
+  20 answered cases, none contain their own answer
+
 duplicates
   20 cases, 3 near-duplicate clusters covering 7 cases — about 16 distinct scenarios
   (20% redundant)
@@ -376,7 +389,7 @@ duplicates
   WARN  2 near-identical cases (pairwise cosine 0.98)
         password_001, password_002
 
-7 warnings across 2 checks
+7 warnings across 3 checks
 
 Not run
   · discrimination — needs a scoring function that runs your models, so it cannot run
@@ -394,6 +407,26 @@ What this audit cannot tell you
       verdict.
     · Input length is measured in characters, not tokens, so it is a rough proxy for
       cost and complexity.
+  leakage
+    · This check CANNOT distinguish a leak from a task where the answer is supposed to
+      appear in the input. Extractive QA, span selection and reading comprehension all
+      legitimately contain their answers. When most of a set looks like that, this check
+      says so once and stops flagging individual cases — read that note before treating
+      any finding as a bug.
+    · Containment is literal text matching after whitespace and case normalisation. A
+      leak that paraphrases the answer, or encodes it as a synonym, a number in a
+      different format, or a hint, is invisible here. Absence of a finding is not
+      evidence of absence.
+    · Token-overlap scoring was deliberately NOT used. On GSM8K the overlap between a
+      reference answer and its question reaches 1.00 with no leakage, because the answer
+      is a worked solution that restates the question. No threshold separates that from
+      a real leak, so no such finding is emitted — this check is quieter than it could
+      be, on purpose.
+    · Answers shorter than 12 characters are skipped, and sets whose answers come from a
+      small closed vocabulary are treated as classification and skipped entirely. A
+      genuine leak of a short label will therefore be missed.
+    · Only the 'input' and 'expected' fields are read. An answer leaked through
+      metadata, a filename, or an id is not seen.
   duplicates
     · Similarity is computed on the 'input' field alone. Two cases with the same input
       but different 'expected' values may be deliberate (testing consistency, or a known
@@ -410,11 +443,10 @@ What this audit cannot tell you
       endings can look identical to this check.
     · Every pair is compared, so time and memory grow with the square of the case count.
       Fine for a few thousand cases, not for a corpus.
-
 ```
 
 Two things in that output are deliberate. **Discrimination is listed under "Not run"**
-rather than omitted — the CLI covers two of three checks and says so, because a report
+rather than omitted — the CLI covers three of four checks and says so, because a report
 that quietly covered two thirds of the tool would be the same kind of silent lie this
 project exists to catch. And **"What this audit cannot tell you" is not suppressible**;
 there is no `--brief` flag that hides it. A clean report is exactly when a reader is most
@@ -445,7 +477,7 @@ likely to over-trust it.
   capability than you assumed will make a good eval look non-discriminating, and the check
   cannot tell the difference. It also cannot verify that your "weak" model is actually
   weaker — it can only flag when the numbers contradict the ordering you declared.
-- **Only three checks.** Label leakage and ambiguous ground truth are real problems and
+- **Only four checks.** Ambiguous ground truth is a real problem and
   are not implemented.
 
 This section is a feature. Every check also reports its own limitations at runtime, and
@@ -455,8 +487,6 @@ more trustworthy than one that doesn't.
 
 ## Roadmap (v2+)
 
-- **Label-leakage check** — detect cases where the expected answer is recoverable from the
-  input itself, which inflates scores without measuring capability.
 - **Ambiguous-ground-truth check** — flag cases where the reference answer is one of
   several defensible responses, so a correct model gets marked wrong.
 - **Multi-turn eval sets.** One case is currently one input string, so a conversational
@@ -469,7 +499,7 @@ runner.
 ## Development
 
 ```bash
-uv run pytest    # 295 tests
+uv run pytest    # 310 tests
 ```
 
 Every check is tested both ways: it must **fire on known-bad input** and **stay quiet on
@@ -486,7 +516,7 @@ src/evallint/
   config.py       evallint.toml / [tool.evallint] discovery
   checks/
     base.py       Check interface; CheckResult refuses to exist without limitations
-    discrimination.py · duplicates.py · imbalance.py
+    discrimination.py · duplicates.py · imbalance.py · leakage.py
   report.py       CheckResults -> text (rich) or JSON
   cli.py          `evallint PATH`
 ```

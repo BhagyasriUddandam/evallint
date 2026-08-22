@@ -12,9 +12,13 @@ evaluations silently lie. Read SPEC.md for the full design before doing anything
 It is NOT an eval runner. It does not compete with promptfoo/DeepEval. It audits the set.
 
 ## Scope discipline
-v1 = exactly three checks: discrimination failure, near-duplicate detection, class imbalance.
-Do not add a fourth check, a web UI, a database, or a cloud anything. If tempted to add
+v1 shipped exactly three checks: discrimination failure, near-duplicate detection, class
+imbalance. Label leakage was added in 0.3.0 after I signed off on it explicitly.
+Do not add a FIFTH check, a web UI, a database, or a cloud anything. If tempted to add
 architecture, STOP and ask me first. Over-engineering is the main failure mode here.
+The one remaining roadmap check, ambiguous ground truth, needs a model to judge and so
+would reintroduce the LLM-judge problem this project removed — do not start it without
+discussing that.
 
 ## Tech
 - Python 3.12+, managed with uv. `uv pip install`, never bare pip.

@@ -4,6 +4,38 @@ All notable changes to this project are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.3.0] — 2026-08-22
+
+### Added
+- **Fourth check: `LeakageCheck`** — flags cases whose `expected` answer appears
+  verbatim in their own `input`. Those cases don't need the capability under
+  test, so they inflate the score while measuring reading. Runs in the CLI
+  alongside imbalance: no model, no API key, no cost.
+
+  **The design is mostly about what it refuses to do.** Token overlap between
+  an answer and its question is the obvious signal, and it was measured and
+  **discarded**: on GSM8K the overlap reaches 1.00 with no leakage at all,
+  because the reference answer is a worked solution restating the question. A
+  planted leak also scores 1.00, so no threshold separates them. Verbatim
+  containment does work — measured 0 hits on GSM8K, 0 on TruthfulQA, and 46 on
+  MMLU, where the answers are single characters from a set of four and the
+  hits are coincidence.
+
+  So: answers under 12 characters are skipped, sets whose answers form a small
+  closed vocabulary are treated as classification and skipped entirely, and a
+  set where most cases contain their answer is reported ONCE as probable
+  extractive QA rather than as hundreds of warnings. A leakage check that fires
+  on every reading-comprehension set is worse than no check.
+
+  **Zero false positives across GSM8K, MMLU, TruthfulQA and HellaSwag**, pinned
+  by tests.
+
+### Changed
+- The CLI now runs three checks rather than two; discrimination is still
+  reported under "Not run" because it needs your models.
+- README example output regenerated, and the "three checks" claims in the
+  package docstring, README, CLAUDE.md and SPEC.md corrected.
+
 ## [0.2.0] — 2026-08-22
 
 ### Added
@@ -150,5 +182,6 @@ First release.
   `embedder=` callable instead.
 - Not an eval runner. It audits the dataset that eval runners consume.
 
+[0.3.0]: https://github.com/BhagyasriUddandam/evallint/releases/tag/v0.3.0
 [0.2.0]: https://github.com/BhagyasriUddandam/evallint/releases/tag/v0.2.0
 [0.1.0]: https://github.com/BhagyasriUddandam/evallint/releases/tag/v0.1.0
