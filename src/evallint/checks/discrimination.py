@@ -1,29 +1,118 @@
-"""Check 1 — discrimination failure.
+"""Check 1 — model separation analysis.
 
-The failure this catches: an eval reports 200 cases, but on 140 of them a
-strong model and a weak model get exactly the same verdict. Those 140 cases
-cannot tell the two apart, so they contribute no evidence about which model is
-better. The eval is really 60 cases wearing a 200-case costume.
+## The question
 
-Run each case against two or more models of KNOWN differing capability and
-compare the verdicts. "All the same verdict" splits into two situations with
-different remedies, so they are reported separately:
+Not "is this case good?" but "how much evidence about model separation does
+this eval carry, and between which capability levels?".
 
-  ceiling  every model passes  -> too easy; adds score, not signal
-  floor    every model fails   -> too hard, OR the reference answer is wrong,
-                                  OR the grader is broken. Check the case
-                                  before blaming the models.
+Run every case against two or more models of KNOWN differing capability,
+ordered weakest first, and classify what the pattern of verdicts supports.
 
-And one pattern that is not a discrimination failure at all but falls out of
-the same data and is worth more than either:
+## The taxonomy
 
-  inverted  a weaker model passed where a stronger one failed. These cases do
-            separate the models, but in the wrong direction. In practice that
-            usually means a bad reference answer or a grader artefact.
+Five outcomes, none of which is a defect label:
 
-The scorer is injected. That is the single most important design choice in the
-tool: evallint never talks to a model provider, so it works with anyone's
-stack and the tests need no API key.
+  ceiling        every model passed
+  floor          every model failed
+  separating     verdicts follow the declared order, with at least one change
+  non_monotonic  a weaker model passed where a stronger one failed
+  indeterminate  the repeats did not agree well enough to assign a verdict
+
+A ceiling case is NOT a bad case. It may be a deliberate regression guard, and
+an eval with none is an eval that cannot detect a regression. What ceiling and
+floor cases do is **provide limited evidence for model separation** — they say
+nothing about which model is better. That is a statement about evidence, not
+about quality, and the wording is deliberate throughout.
+
+`floor` and `non_monotonic` are worth more attention than `ceiling`, for a
+reason that has nothing to do with difficulty: a case every model fails, or one
+where the weaker model wins, is more often a wrong reference answer or a broken
+grader than a hard case. They are pointers to the ground truth.
+
+## Majority, not unanimity — the central methodological change
+
+An earlier version of this check classified a case only when every model's
+verdict was unanimous across repeats, and discarded the rest. That filter is
+not neutral with respect to the outcome it measures.
+
+For a model that passes a case with probability p, a unanimous run is much more
+likely when p is extreme: at p = 0.6 and 5 repeats, P(all pass) = 0.078 while
+P(all fail) = 0.010. Surviving cases are therefore enriched for "this model
+consistently passes" — which is the ceiling category. Measured on a synthetic
+100-case set with a weak model at p = 0.6:
+
+    repeats   n_measured   non-discriminating share
+       1         100              0.52
+       3          27              0.74
+       5           9              0.89
+
+The share nearly doubles without the data changing. Worse, the check's own
+advice was to raise `repeats` before trusting the figure, so following it made
+the number less trustworthy.
+
+The analysis now uses the MAJORITY verdict per model and classifies every
+scored case, so the denominator is always `n_cases` and does not move with
+`repeats`. Raising `repeats` moves cases out of `indeterminate` into resolved
+classes; it no longer deletes them.
+
+`non_discriminating_share` and the `n_measured` / `unstable` keys are retained
+unchanged for backward compatibility. They are computed the old way and carry
+the old bias, so **do not compare them across different `repeats` values** —
+use `limited_evidence_share`, whose denominator is fixed.
+
+## Uncertainty
+
+Per case, a model's success count out of `repeats` gets a Wilson interval.
+A classification is marked `supported` only when every model's interval
+excludes 0.5, i.e. the repeats are sufficient to resolve that verdict alone.
+At `repeats=1` nothing is ever supported, because one observation cannot bound
+a probability — that is the correct answer rather than a gap in the code.
+
+Per model pair, the comparison is PAIRED (both models saw the same cases), so
+it uses McNemar on the discordant counts rather than two independent-proportion
+tests. Each pair reports the difference in pass rate with an interval, an exact
+p-value, and a minimum detectable effect: the smallest difference this eval
+could have resolved at all. A real run in this repo has an MDE of 4.0
+percentage points on 100 cases, against an observed gap of 0.7 — so that eval
+cannot support a claim about which model is better, and says so.
+
+## Thresholds, and their justification
+
+  pass_threshold = 0.5   Only used to turn a float score into a verdict.
+                         A convention; move it if your scorer's scale differs.
+  0.5 (support test)     A per-case verdict is "resolved" when the interval for
+                         that model's success probability excludes one half,
+                         i.e. it is more likely than not in a way the repeats
+                         can demonstrate. Follows from majority voting rather
+                         than being chosen independently.
+  confidence = 0.95      A convention. Exported as `confidence_level` in the
+                         stats so a reader can substitute their own.
+  alpha = 0.05           Derived from the confidence level, not chosen
+                         separately, so the two cannot drift apart.
+  max_non_discriminating_share = 0.5
+                         The level above which a warning is emitted. A
+                         convention with no statistical content, and stated as
+                         such in the limitations.
+  10 discordant pairs    Below this the normal-approximation interval on the
+                         paired difference is reported as indicative only. The
+                         conventional rule of thumb for a binomial normal
+                         approximation, and it earns its place here: see below.
+
+A pair is called separated by the EXACT test, not by whether its interval
+excludes zero. Those two disagree at small discordant counts, and there the
+interval is the one that is wrong. Three discordant cases all favouring the
+same model give a Wald interval of [+0.005, +0.495] — excluding zero — while
+the exact p-value is 0.25. And when every comparable case is discordant in one
+direction the Wald interval collapses to zero width and claims certainty, the
+same defect that rules out the normal approximation for a proportion. So the
+interval describes magnitude and carries an `interval_reliable` flag; the
+decision comes from the test.
+
+## The scorer is injected
+
+The single most important design choice in the tool: evallint never talks to a
+model provider, so it works with anyone's stack and the tests need no API key.
+The contract is unchanged — ``scorer(case, model) -> bool | float``.
 """
 
 from __future__ import annotations
@@ -31,12 +120,34 @@ from __future__ import annotations
 import random
 from collections.abc import Callable, Sequence
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import dataclass
+from enum import Enum
 from typing import Any
 
 from ..schema import EvalCase, EvalSet
 from .base import Check, CheckResult, Finding, Severity
+from .separation import (
+    ALPHA,
+    NORMAL_APPROX_MIN_DISCORDANT,
+    Z_95,
+    mcnemar_exact_p,
+    minimum_detectable_effect,
+    paired_difference,
+    wilson_interval,
+)
 
-__all__ = ["DiscriminationCheck", "Scorer", "ScorerError"]
+#: Interval level used for every reported interval. A convention, stated in the
+#: stats so a reader can substitute their own rather than having to guess.
+CONFIDENCE_LEVEL = 0.95
+
+__all__ = [
+    "CONFIDENCE_LEVEL",
+    "CaseClass",
+    "CaseSeparation",
+    "DiscriminationCheck",
+    "Scorer",
+    "ScorerError",
+]
 
 Scorer = Callable[[EvalCase, Any], bool | float]
 
@@ -221,6 +332,22 @@ class DiscriminationCheck(Check):
         non_discriminating = len(ceiling) + len(floor)
         n_cases = len(cases)
         n_measured = len(stable)
+
+        # ------------------------------------------------------------------
+        # Separation analysis. Classifies EVERY scored case, using the majority
+        # verdict per model rather than requiring unanimity, so the denominator
+        # is n_cases and does not move when `repeats` changes. See the module
+        # docstring for why the legacy `non_discriminating_share` above is
+        # retained but should not be compared across repeat counts.
+        # ------------------------------------------------------------------
+        classified = {
+            case.id: _classify_case(runs[case.id], self.repeats) for case in cases
+        }
+        by_class: dict[str, list[str]] = {c.value: [] for c in CaseClass}
+        for case in cases:
+            by_class[classified[case.id].label.value].append(case.id)
+        supported_ids = [c.id for c in cases if classified[c.id].supported]
+        pairs = _pair_analysis(cases, classified, self.model_names)
         # Denominator is MEASURED cases, not all cases: an unstable case is
         # unknown, not discriminating, and counting it as either would flatter
         # or slander the eval set. With repeats=1 nothing can be unstable, so
@@ -263,6 +390,38 @@ class DiscriminationCheck(Check):
             "unstable_case_ids": unstable,
         }
 
+        # --- separation analysis (denominator is always n_cases) ------------
+        n_limited = len(by_class["ceiling"]) + len(by_class["floor"])
+        stats.update(
+            confidence_level=CONFIDENCE_LEVEL,
+            case_classes={cid: cls.label.value for cid, cls in classified.items()},
+            n_by_class={k: len(v) for k, v in by_class.items()},
+            case_ids_by_class=by_class,
+            n_limited_evidence=n_limited,
+            limited_evidence_share=n_limited / n_cases if n_cases else 0.0,
+            limited_evidence_interval=list(wilson_interval(n_limited, n_cases)),
+            n_separating=len(by_class["separating"]),
+            separating_share=(
+                len(by_class["separating"]) / n_cases if n_cases else 0.0
+            ),
+            separating_interval=list(
+                wilson_interval(len(by_class["separating"]), n_cases)
+            ),
+            # How many per-case classifications the repeats actually support.
+            # With repeats=1 this is 0 by construction: a single observation
+            # cannot bound a per-case success probability.
+            n_statistically_supported=len(supported_ids),
+            statistically_supported_case_ids=supported_ids,
+            model_pairs=pairs,
+            separated_pairs=[p["pair"] for p in pairs if p["verdict"] == "separated"],
+            contradicted_pairs=[
+                p["pair"] for p in pairs if p["verdict"] == "ordering_contradicted"
+            ],
+            unresolved_pairs=[
+                p["pair"] for p in pairs if p["verdict"] == "unresolved"
+            ],
+        )
+
         findings: list[Finding] = []
         if unstable:
             # First, and a WARNING: if verdicts are not reproducible then every
@@ -278,18 +437,18 @@ class DiscriminationCheck(Check):
                     case_ids=tuple(unstable),
                 )
             )
-        if share > self.max_non_discriminating_share:
-            # Say "measured cases" only when some were actually excluded. With
-            # nothing excluded the qualifier is noise; with cases excluded,
-            # plain "of cases" would imply a denominator that isn't the one used.
-            scope = "measured cases" if unstable else "cases"
+        limited_share = stats["limited_evidence_share"]
+        lo, hi = stats["limited_evidence_interval"]
+        if limited_share > self.max_non_discriminating_share:
             findings.append(
                 Finding(
-                    f"{share:.0%} of {scope} ({non_discriminating}/{n_measured}) "
-                    f"give every model the same verdict, so they carry no "
-                    f"evidence about which model is better. This eval "
-                    f"discriminates like a {n_measured - non_discriminating}-case "
-                    f"set"
+                    f"{limited_share:.0%} of cases ({n_limited}/{n_cases}, 95% CI "
+                    f"{lo:.0%}-{hi:.0%}) provide limited evidence for model "
+                    f"separation: every model returned the same verdict. That is "
+                    f"not a defect in those cases — ceiling cases can be "
+                    f"deliberate regression guards — but it means this eval "
+                    f"separates these models about as well as a "
+                    f"{stats['n_separating']}-case set would"
                 )
             )
         if ceiling:
@@ -301,7 +460,9 @@ class DiscriminationCheck(Check):
             findings.append(
                 Finding(
                     f"every model passes {_n_cases(len(ceiling))}, including "
-                    f"'{self.model_names[0]}' — too easy to separate anything",
+                    f"'{self.model_names[0]}', so these provide limited evidence "
+                    f"for model separation. They may still be worth keeping as "
+                    f"regression guards",
                     severity=Severity.INFO,
                     case_ids=tuple(ceiling),
                 )
@@ -310,8 +471,10 @@ class DiscriminationCheck(Check):
             findings.append(
                 Finding(
                     f"every model fails {_n_cases(len(floor))}, including "
-                    f"'{self.model_names[-1]}'. Check the reference answer and "
-                    f"the grader before assuming difficulty",
+                    f"'{self.model_names[-1]}', so these provide limited evidence "
+                    f"for model separation. Check the reference answer and the "
+                    f"grader before assuming difficulty — a case nothing passes "
+                    f"is more often wrong than hard",
                     case_ids=tuple(floor),
                 )
             )
@@ -325,6 +488,32 @@ class DiscriminationCheck(Check):
                     case_ids=tuple(inverted),
                 )
             )
+        non_monotonic = by_class["non_monotonic"]
+        if non_monotonic and set(non_monotonic) != set(inverted):
+            findings.append(
+                Finding(
+                    f"{_n_cases(len(non_monotonic))} are NON-MONOTONIC on the "
+                    f"majority verdict: a weaker model passed where a stronger "
+                    f"one failed. These do separate the models, but in the "
+                    f"direction the declared ordering says is impossible, so "
+                    f"suspect the reference answer, the grader, or the ordering "
+                    f"itself before a real capability gap",
+                    case_ids=tuple(non_monotonic),
+                )
+            )
+        indeterminate = by_class["indeterminate"]
+        if indeterminate:
+            findings.append(
+                Finding(
+                    f"{_n_cases(len(indeterminate))} could not be assigned a "
+                    f"verdict: the {self.repeats} repeats split exactly evenly for "
+                    f"at least one model. An even repeat count makes ties "
+                    f"reachable — use an odd number",
+                    severity=Severity.INFO,
+                    case_ids=tuple(indeterminate),
+                )
+            )
+        findings.extend(self._pair_findings(stats))
         findings.extend(self._sanity_findings(stats, non_discriminating, n_measured))
 
         summary = (
@@ -334,8 +523,8 @@ class DiscriminationCheck(Check):
              else f"{n_cases} cases")
             + f" x {len(self.models)} models"
             + (f" x {self.repeats} repeats" if self.repeats > 1 else "")
-            + f": {n_measured - non_discriminating} discriminate, "
-            f"{non_discriminating} do not ({share:.0%})"
+            + f": {stats['n_separating']} separate models, "
+            f"{n_limited} provide limited evidence ({limited_share:.0%})"
             + (f", {len(unstable)} not reproducible" if unstable else "")
         )
         limitations = LIMITATIONS
@@ -354,6 +543,73 @@ class DiscriminationCheck(Check):
             stats=stats,
             limitations=limitations,
         )
+
+    def _pair_findings(self, stats: dict) -> list[Finding]:
+        """Report which capability levels this eval actually separates.
+
+        The headline share says how much of the eval does separating work; it
+        does not say BETWEEN WHOM. An eval can separate the weakest model from
+        the strongest while resolving nothing in between, which changes what you
+        may conclude from it entirely.
+        """
+        findings: list[Finding] = []
+        for pair in stats["model_pairs"]:
+            weak, strong = pair["pair"]
+            lo, hi = pair["delta_interval"]
+            if pair["verdict"] == "separated":
+                findings.append(
+                    Finding(
+                        f"'{strong}' outperforms '{weak}' by "
+                        f"{pair['delta']:+.1%} (95% CI {lo:+.1%} to {hi:+.1%}, "
+                        f"McNemar p={pair['mcnemar_p']:.3g}) — this eval does "
+                        f"separate that pair"
+                        + ("" if pair["interval_reliable"] else
+                           f"; only {pair['n_discordant']} discordant cases, so "
+                           f"the interval is indicative"),
+                        severity=Severity.INFO,
+                    )
+                )
+            elif pair["verdict"] == "ordering_contradicted":
+                findings.append(
+                    Finding(
+                        f"'{weak}' outperformed '{strong}' by "
+                        f"{-pair['delta']:+.1%} (95% CI {lo:+.1%} to {hi:+.1%}, "
+                        f"McNemar p={pair['mcnemar_p']:.3g}), contradicting the "
+                        f"capability order you declared. Either the ordering is "
+                        f"wrong or the references favour the weaker model"
+                    )
+                )
+            elif pair["verdict"] == "no_information":
+                findings.append(
+                    Finding(
+                        f"'{weak}' and '{strong}' never disagreed on any of the "
+                        f"{pair['n_comparable']} cases, so this eval provides NO "
+                        f"information about that pair. That is not evidence they "
+                        f"are equally capable — it is the absence of evidence "
+                        f"either way",
+                        severity=Severity.INFO,
+                    )
+                )
+            elif pair["verdict"] == "unresolved":
+                mde = pair["minimum_detectable_effect"]
+                caveat = (
+                    "" if pair["interval_reliable"]
+                    else f" (only {pair['n_discordant']} discordant cases, so "
+                         f"treat the interval as indicative)"
+                )
+                findings.append(
+                    Finding(
+                        f"'{weak}' vs '{strong}' is UNRESOLVED: observed "
+                        f"difference {pair['delta']:+.1%}, McNemar "
+                        f"p={pair['mcnemar_p']:.3g}. With {pair['n_discordant']} "
+                        f"discordant of {pair['n_comparable']} cases this eval "
+                        f"could only have detected a difference of about "
+                        f"{mde:.1%} or larger, so it cannot support a claim "
+                        f"either way about this pair{caveat}",
+                        severity=Severity.INFO,
+                    )
+                )
+        return findings
 
     def _sanity_findings(
         self, stats: dict, non_discriminating: int, n_cases: int
@@ -526,6 +782,181 @@ def _unwrap_scalar(value: Any) -> Any:
 
 def _n_cases(n: int) -> str:
     return "1 case" if n == 1 else f"{n} cases"
+
+
+class CaseClass(str, Enum):
+    """What a case tells you about the models, not whether the case is good.
+
+    None of these is a defect label. A ceiling case is not a bad case: it may be
+    a deliberate regression guard, and every eval needs some. What the taxonomy
+    records is how much EVIDENCE ABOUT MODEL SEPARATION a case carries, which is
+    a different question from whether it belongs in the set.
+    """
+
+    #: Every model passed. Provides limited evidence for model separation.
+    CEILING = "ceiling"
+    #: Every model failed. Provides limited evidence for model separation, and
+    #: may indicate a wrong reference answer rather than a hard case.
+    FLOOR = "floor"
+    #: Verdicts follow the declared capability order with at least one change.
+    SEPARATING = "separating"
+    #: A weaker model passed where a stronger one failed, contradicting the
+    #: declared order. Evidence about the reference or the ordering, not
+    #: necessarily about capability.
+    NON_MONOTONIC = "non_monotonic"
+    #: The repeats did not agree well enough to assign a verdict at all.
+    INDETERMINATE = "indeterminate"
+
+
+@dataclass(frozen=True, slots=True)
+class CaseSeparation:
+    """One case's classification, with the verdicts it was derived from."""
+
+    label: CaseClass
+    verdicts: tuple[bool | None, ...]
+    successes: tuple[int, ...]
+    #: True when every model's per-case success interval excludes 0.5, i.e. the
+    #: repeats are sufficient to resolve each verdict on their own.
+    supported: bool
+
+
+def _majority(verdicts: tuple[bool, ...]) -> bool | None:
+    """Majority verdict, or None on an exact tie.
+
+    Majority rather than unanimity, and this is the central methodological
+    change. Requiring unanimity and discarding the rest biases the result: for a
+    model passing with probability p, a unanimous run is far more likely when p
+    is extreme, so the surviving cases are enriched for ceiling and floor -- the
+    very categories being counted. Raising `repeats` then inflates the
+    non-discriminating share rather than measuring it better.
+
+    A tie is only reachable with an even number of repeats, and returns None so
+    the case is reported INDETERMINATE rather than broken arbitrarily. Odd
+    repeat counts are therefore preferable, which the check says in its
+    limitations.
+    """
+    if not verdicts:
+        return None
+    successes = sum(verdicts)
+    trials = len(verdicts)
+    if 2 * successes == trials:
+        return None
+    return 2 * successes > trials
+
+
+def _classify_case(per_model: Sequence[tuple[bool, ...]], repeats: int) -> CaseSeparation:
+    """Classify one case from its per-model repeat verdicts."""
+    verdicts = tuple(_majority(r) for r in per_model)
+    successes = tuple(sum(r) for r in per_model)
+
+    # A per-case verdict is statistically supported only if the interval for
+    # that model's success probability on this case excludes 0.5. At repeats=1
+    # the interval is [0.21, 1.0] or [0.0, 0.79], so nothing is ever supported
+    # -- which is the correct answer, not a limitation of the code.
+    supported = all(
+        _excludes(wilson_interval(k, repeats), 0.5) for k in successes
+    ) and None not in verdicts
+
+    if None in verdicts:
+        label = CaseClass.INDETERMINATE
+    elif all(verdicts):
+        label = CaseClass.CEILING
+    elif not any(verdicts):
+        label = CaseClass.FLOOR
+    elif _is_inverted([bool(v) for v in verdicts]):
+        label = CaseClass.NON_MONOTONIC
+    else:
+        label = CaseClass.SEPARATING
+
+    return CaseSeparation(
+        label=label, verdicts=verdicts, successes=successes, supported=supported
+    )
+
+
+def _excludes(interval: tuple[float, float], value: float) -> bool:
+    lo, hi = interval
+    return value < lo or value > hi
+
+
+def _pair_analysis(
+    cases: Sequence[EvalCase],
+    classified: dict[str, CaseSeparation],
+    model_names: Sequence[str],
+) -> list[dict[str, Any]]:
+    """Which model pairs this eval actually separates, with uncertainty.
+
+    Every ordered pair is reported, not only adjacent ones: an eval can separate
+    the weakest from the strongest while resolving nothing in between, and that
+    is exactly the kind of thing a user needs told.
+
+    The comparison is PAIRED -- both models saw the same cases -- so it uses
+    McNemar rather than two independent-proportion tests. Only discordant cases
+    carry information about which model is better.
+    """
+    out: list[dict[str, Any]] = []
+    for i in range(len(model_names)):
+        for j in range(i + 1, len(model_names)):
+            weaker_passed = stronger_passed = comparable = 0
+            for case in cases:
+                v = classified[case.id].verdicts
+                if v[i] is None or v[j] is None:
+                    continue
+                comparable += 1
+                if v[i] and not v[j]:
+                    weaker_passed += 1
+                elif v[j] and not v[i]:
+                    stronger_passed += 1
+
+            delta, interval, standard_error = paired_difference(
+                weaker_passed, stronger_passed, comparable
+            )
+            p_value = mcnemar_exact_p(weaker_passed, stronger_passed)
+            p_discordant = (
+                (weaker_passed + stronger_passed) / comparable if comparable else 0.0
+            )
+            mde = minimum_detectable_effect(p_discordant, comparable)
+
+            # The DECISION comes from the exact test, not from the interval.
+            # They disagree at small discordant counts, and there the exact test
+            # is the correct one: 3 discordant cases all favouring one model
+            # give a Wald interval excluding zero but an exact p of 0.25.
+            # The interval is retained to describe MAGNITUDE, flagged when the
+            # normal approximation behind it is not trustworthy.
+            discordant = weaker_passed + stronger_passed
+            if comparable == 0:
+                verdict = "not_comparable"
+            elif discordant == 0:
+                # Not merely unresolved: the two models never once disagreed, so
+                # this eval carries no information about the pair at all.
+                verdict = "no_information"
+            elif p_value < ALPHA and delta > 0:
+                verdict = "separated"
+            elif p_value < ALPHA and delta < 0:
+                verdict = "ordering_contradicted"
+            else:
+                verdict = "unresolved"
+
+            out.append(
+                {
+                    "pair": [model_names[i], model_names[j]],
+                    "adjacent": j == i + 1,
+                    "n_comparable": comparable,
+                    "n_stronger_only": stronger_passed,
+                    "n_weaker_only": weaker_passed,
+                    "n_discordant": weaker_passed + stronger_passed,
+                    "delta": delta,
+                    "delta_interval": list(interval),
+                    "standard_error": standard_error,
+                    "mcnemar_p": p_value,
+                    # None, not 0.0, when nothing was discordant. A zero would
+                    # read as "can detect any difference", the exact opposite of
+                    # what no disagreement means.
+                    "minimum_detectable_effect": mde if discordant else None,
+                    "interval_reliable": discordant >= NORMAL_APPROX_MIN_DISCORDANT,
+                    "verdict": verdict,
+                }
+            )
+    return out
 
 
 def _is_inverted(verdicts: Sequence[bool]) -> bool:

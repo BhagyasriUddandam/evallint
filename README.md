@@ -335,6 +335,60 @@ which a float scorer counts as a pass; it is ignored for bool scorers.
 `max_non_discriminating_share` (default `0.5`) is the share of measured cases above which
 the check warns.
 
+### What the separation analysis reports
+
+Every case is classified into one of five outcomes, and **none of them is a
+defect label**:
+
+| class | pattern | what it means |
+|---|---|---|
+| `ceiling` | all models pass | provides limited evidence for model separation |
+| `floor` | all models fail | limited evidence — and more often a wrong reference than a hard case |
+| `separating` | follows the declared order | carries evidence about which model is better |
+| `non_monotonic` | a weaker model passed where a stronger failed | evidence about the reference or the ordering |
+| `indeterminate` | repeats split evenly | this run cannot assign a verdict |
+
+A ceiling case is not a bad case — it may be a deliberate regression guard, and
+an eval with none cannot detect a regression. The wording throughout is
+"provides limited evidence for model separation", which is a claim about
+evidence rather than about quality.
+
+**Which pairs are actually separated**, not merely how many cases separate
+something. An eval can resolve the ends of a capability ladder while saying
+nothing about the middle, and that changes what you may conclude from it:
+
+```python
+for pair in result.stats["model_pairs"]:
+    print(pair["pair"], pair["verdict"], pair["mcnemar_p"])
+
+['small', 'medium']  unresolved   0.25
+['small', 'large']   separated    0.00391
+['medium', 'large']  unresolved   0.25
+```
+
+The comparison is **paired** — both models saw the same cases — so it uses an
+exact McNemar test rather than two independent-proportion tests. `unresolved`
+and `no_information` are distinct: the second means the two models never once
+disagreed, which is not evidence that they are equally capable.
+
+**A minimum detectable effect**, which states what the eval *cannot* do:
+
+```
+'haiku' vs 'opus' is UNRESOLVED: observed difference +0.0%, McNemar p=1.
+With 2 discordant of 100 cases this eval could only have detected a
+difference of about 4.0% or larger, so it cannot support a claim either way
+about this pair
+```
+
+Verdicts across repeats use a **majority**, not unanimity. Requiring unanimity
+and discarding the rest biased the headline number upward as `repeats` rose,
+because unanimity is likelier when a model's success probability is extreme —
+measured 0.52 → 0.89 going from 1 to 5 repeats on unchanged data. Nothing is
+discarded now, so the denominator is fixed.
+
+Full derivations, every threshold with its justification, and the failure modes:
+[docs/methodology-discrimination.md](docs/methodology-discrimination.md).
+
 ### Does this check actually find anything?
 
 Yes, on a benchmark this project did not write. Run against **100 GSM8K cases** with
@@ -499,7 +553,7 @@ runner.
 ## Development
 
 ```bash
-uv run pytest    # 310 tests
+uv run pytest    # 358 tests
 ```
 
 Every check is tested both ways: it must **fire on known-bad input** and **stay quiet on

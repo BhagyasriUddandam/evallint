@@ -102,8 +102,12 @@ def test_eval_where_nothing_discriminates_is_flagged() -> None:
     result = DiscriminationCheck(scorer, [WEAK, STRONG]).run(eval_set)
 
     assert result.has_warnings
-    assert "100% of cases (8/8)" in messages(result)
-    assert "discriminates like a 0-case set" in messages(result)
+    # Wording is deliberate: "provide limited evidence for model separation",
+    # not "bad cases". Every model agreeing is a fact about evidence, not a
+    # defect -- these eight may be intentional regression guards.
+    assert "100% of cases (8/8" in messages(result)
+    assert "provide limited evidence for model separation" in messages(result)
+    assert "separates these models about as well as a 0-case set" in messages(result)
     assert result.stats["effective_n_cases"] == 0
     assert "no case separated these models" in messages(result)
 
@@ -115,8 +119,8 @@ def test_majority_non_discriminating_is_flagged() -> None:
 
     result = DiscriminationCheck(scorer, [WEAK, STRONG]).run(eval_set)
 
-    assert "60% of cases (6/10)" in messages(result)
-    assert "discriminates like a 4-case set" in messages(result)
+    assert "60% of cases (6/10, 95% CI" in messages(result)
+    assert "separates these models about as well as a 4-case set" in messages(result)
 
 
 def test_floor_cases_are_warned_about_and_blame_the_case_first() -> None:
@@ -503,11 +507,24 @@ def test_share_denominator_excludes_unstable_cases() -> None:
 
     result = DiscriminationCheck(scorer, [WEAK, STRONG], repeats=2).run(eval_set)
 
-    # 1 of 1 MEASURED case is non-discriminating -> 100%, not 50% of all cases.
+    # CHARACTERISATION of the legacy keys. `n_measured` and
+    # `non_discriminating_share` still exclude the unstable case, so a consumer
+    # reading those keys sees exactly what it saw before -- 1 of 1 measured,
+    # 100%. They are retained for compatibility and carry the old selection
+    # bias, which is why they must not be compared across repeat counts.
     assert result.stats["n_measured"] == 1
     assert result.stats["non_discriminating_share"] == 1.0
-    assert "1/1" in messages(result)
-    assert "measured cases" in messages(result)
+
+    # The HUMAN-FACING figure uses the unbiased denominator: 1 of 2 cases, not
+    # 1 of 1. Nothing is discarded from the separation analysis, so the flaky
+    # case is classified from its majority verdict instead of vanishing.
+    assert result.stats["n_cases"] == 2
+    assert result.stats["limited_evidence_share"] == 0.5
+    assert sum(result.stats["n_by_class"].values()) == 2
+    # The old message said "measured cases" to flag its shrunken denominator.
+    # That qualifier is gone because the denominator is no longer shrunken --
+    # the message now reports 1 of 2, all cases classified.
+    assert "measured cases" not in messages(result)
 
 
 def test_scorer_call_count_multiplies_by_repeats() -> None:
@@ -853,3 +870,362 @@ def test_sample_composes_with_workers_and_repeats() -> None:
     assert len(calls) == 12 * 2 * 2
     assert result.stats["n_cases"] == 12
     assert result.stats["n_measured"] == 12
+
+
+# ==========================================================================
+# Separation analysis: the multi-model taxonomy
+#
+# Every test here asserts on `n_by_class` / `model_pairs`, the unbiased
+# analysis, rather than on the legacy `n_measured` keys. The legacy keys are
+# still covered above, as characterisation.
+# ==========================================================================
+
+LADDER = ("small", "medium", "large")
+
+
+def ladder_set(n: int = 12) -> EvalSet:
+    return make_set([f"c{i}" for i in range(n)])
+
+
+def by_class(result) -> dict[str, int]:
+    return result.stats["n_by_class"]
+
+
+def pair(result, weak: str, strong: str) -> dict:
+    return next(
+        p for p in result.stats["model_pairs"] if p["pair"] == [weak, strong]
+    )
+
+
+# --- required scenario 1: all models pass ---------------------------------
+
+
+def test_all_models_passing_is_limited_evidence_not_a_defect() -> None:
+    """Requirement: do NOT call a case bad merely because models agree."""
+    result = DiscriminationCheck(lambda c, m: True, list(LADDER)).run(ladder_set())
+
+    assert by_class(result)["ceiling"] == 12
+    assert result.stats["limited_evidence_share"] == 1.0
+    text = messages(result)
+    assert "provide limited evidence for model separation" in text
+    # The wording must not editorialise about quality.
+    for banned in ("bad case", "too easy", "useless", "worthless"):
+        assert banned not in text.lower()
+    # And it must say the cases may be worth keeping.
+    assert "regression guards" in text
+
+
+def test_all_models_passing_yields_no_information_per_pair() -> None:
+    """No pair ever disagreed, so the eval says nothing about any of them —
+    which is different from saying they are equal."""
+    result = DiscriminationCheck(lambda c, m: True, list(LADDER)).run(ladder_set())
+
+    for p in result.stats["model_pairs"]:
+        assert p["verdict"] == "no_information"
+        assert p["n_discordant"] == 0
+        # None, not 0.0: a zero would read as "can detect anything".
+        assert p["minimum_detectable_effect"] is None
+    assert "never disagreed" in messages(result)
+    assert "absence of evidence" in messages(result)
+
+
+# --- required scenario 2: all models fail --------------------------------
+
+
+def test_all_models_failing_points_at_the_reference_answer() -> None:
+    result = DiscriminationCheck(lambda c, m: False, list(LADDER)).run(ladder_set())
+
+    assert by_class(result)["floor"] == 12
+    assert result.stats["limited_evidence_share"] == 1.0
+    text = messages(result)
+    assert "provide limited evidence for model separation" in text
+    # Floor differs from ceiling in what it implies, and the message must say so.
+    assert "more often wrong than hard" in text
+
+
+# --- required scenario 3: monotonic improvement --------------------------
+
+
+def test_monotonic_improvement_separates_adjacent_levels() -> None:
+    """Each rung of the ladder passes strictly more cases than the one below."""
+    thresholds = {"small": 0, "medium": 6, "large": 12}
+
+    def scorer(case, model):
+        return int(case.id[1:]) < thresholds[model]
+
+    result = DiscriminationCheck(scorer, list(LADDER)).run(ladder_set())
+
+    assert by_class(result)["non_monotonic"] == 0
+    assert by_class(result)["separating"] == 12
+    assert pair(result, "small", "large")["verdict"] == "separated"
+    assert pair(result, "small", "large")["delta"] == pytest.approx(1.0)
+    # Every pair ordered as declared: no negative deltas anywhere.
+    assert all(p["delta"] >= 0 for p in result.stats["model_pairs"])
+
+
+def test_monotonic_improvement_reports_which_pairs_are_separated() -> None:
+    """Requirement 8. A share alone does not say BETWEEN WHOM."""
+    thresholds = {"small": 0, "medium": 6, "large": 12}
+    result = DiscriminationCheck(
+        lambda c, m: int(c.id[1:]) < thresholds[m], list(LADDER)
+    ).run(ladder_set())
+
+    assert ["small", "large"] in result.stats["separated_pairs"]
+    assert result.stats["contradicted_pairs"] == []
+    assert "does" in messages(result) and "separate that pair" in messages(result)
+
+
+def test_a_ladder_can_separate_the_ends_but_not_the_middle() -> None:
+    """The case that makes per-pair reporting necessary: the eval resolves
+    small-vs-large while saying nothing about medium."""
+
+    def scorer(case, model):
+        i = int(case.id[1:])
+        if model == "small":
+            return False
+        if model == "large":
+            return True
+        return i < 1  # medium differs from small on exactly one case
+
+    result = DiscriminationCheck(scorer, list(LADDER)).run(ladder_set(20))
+
+    assert pair(result, "small", "large")["verdict"] == "separated"
+    assert pair(result, "small", "medium")["verdict"] == "unresolved"
+    assert ["small", "medium"] in result.stats["unresolved_pairs"]
+    assert "UNRESOLVED" in messages(result)
+
+
+# --- required scenario 4: non-monotonic outcomes -------------------------
+
+
+def test_non_monotonic_cases_are_classified_separately() -> None:
+    """A weaker model passing where a stronger one fails is evidence about the
+    reference or the ordering, not a capability gap."""
+
+    def scorer(case, model):
+        return model == "small"  # only the weakest model ever passes
+
+    result = DiscriminationCheck(scorer, list(LADDER)).run(ladder_set())
+
+    assert by_class(result)["non_monotonic"] == 12
+    assert by_class(result)["separating"] == 0
+    assert pair(result, "small", "large")["verdict"] == "ordering_contradicted"
+    assert ["small", "large"] in result.stats["contradicted_pairs"]
+
+
+def test_non_monotonic_is_still_separation_just_in_the_wrong_direction() -> None:
+    """These cases DO distinguish the models. Counting them as
+    non-discriminating would be wrong twice over."""
+    result = DiscriminationCheck(
+        lambda c, m: m == "small", list(LADDER)
+    ).run(ladder_set())
+
+    assert result.stats["n_limited_evidence"] == 0
+    assert result.stats["limited_evidence_share"] == 0.0
+
+
+def test_a_single_non_monotonic_case_among_many_is_reported() -> None:
+    def scorer(case, model):
+        if case.id == "c0":
+            return model == "small"
+        return model != "small"
+
+    result = DiscriminationCheck(scorer, list(LADDER)).run(ladder_set())
+
+    assert by_class(result)["non_monotonic"] == 1
+    assert result.stats["case_ids_by_class"]["non_monotonic"] == ["c0"]
+    assert result.stats["case_classes"]["c0"] == "non_monotonic"
+
+
+# --- required scenario 5: identical model performance --------------------
+
+
+def test_identical_performance_reports_no_separation_without_blame() -> None:
+    """Two models with exactly the same per-case verdicts. The eval separates
+    nothing, and that is a fact about this model pair, not about the cases."""
+
+    def scorer(case, model):
+        return int(case.id[1:]) % 2 == 0
+
+    result = DiscriminationCheck(scorer, ["a", "b"]).run(ladder_set())
+
+    assert by_class(result)["ceiling"] == 6
+    assert by_class(result)["floor"] == 6
+    assert by_class(result)["separating"] == 0
+    p = pair(result, "a", "b")
+    assert p["verdict"] == "no_information"
+    assert p["delta"] == 0.0
+
+
+def test_identical_performance_does_not_claim_the_models_are_equal() -> None:
+    """The distinction the tool must not blur: no evidence of a difference is
+    not evidence of no difference."""
+    result = DiscriminationCheck(
+        lambda c, m: int(c.id[1:]) % 2 == 0, ["a", "b"]
+    ).run(ladder_set())
+
+    text = messages(result)
+    assert "not evidence they are equally capable" in text
+    assert "equally capable" in text  # stated, and stated as a negation
+
+
+# --- required scenario 6: stochastic model outputs ----------------------
+
+
+def test_stochastic_outputs_are_classified_by_majority_not_discarded() -> None:
+    """The central fix. Under unanimity these cases would be thrown away; the
+    denominator must stay at n_cases."""
+    import random
+
+    rng = random.Random(0)
+
+    def scorer(case, model):
+        return rng.random() < (0.5 if model == "weak" else 0.95)
+
+    result = DiscriminationCheck(
+        scorer, ["weak", "strong"], repeats=5
+    ).run(ladder_set())
+
+    assert sum(by_class(result).values()) == 12
+    assert result.stats["n_cases"] == 12
+    assert by_class(result)["indeterminate"] == 0  # odd repeats -> no ties
+
+
+def test_the_denominator_does_not_move_with_repeats() -> None:
+    """REGRESSION, and the reason this analysis exists.
+
+    The legacy `non_discriminating_share` divides by the number of UNANIMOUS
+    cases, and unanimity is more likely when a model's success probability is
+    extreme. So raising `repeats` enriches the survivors for ceiling cases and
+    inflates the share -- measured at 0.52 -> 0.89 going from 1 to 5 repeats on
+    a noisy weak model, with the data unchanged.
+
+    `limited_evidence_share` divides by n_cases, which cannot move.
+    """
+    import random
+
+    cases = make_set([f"c{i}" for i in range(100)])
+
+    def build(seed):
+        rng = random.Random(seed)
+        return lambda case, model: True if model == "strong" else rng.random() < 0.6
+
+    legacy_denominators = []
+    for repeats in (1, 3, 5):
+        stats = DiscriminationCheck(
+            build(0), ["weak", "strong"], repeats=repeats
+        ).run(cases).stats
+        legacy_denominators.append(stats["n_measured"])
+        # The new denominator is always every scored case.
+        assert stats["n_cases"] == 100
+        assert sum(stats["n_by_class"].values()) == 100
+
+    # Characterisation: the legacy denominator really does collapse.
+    assert legacy_denominators[0] == 100
+    assert legacy_denominators[-1] < 20, legacy_denominators
+
+
+def test_per_case_support_requires_enough_repeats() -> None:
+    """At repeats=1 a per-case verdict cannot be statistically supported: one
+    observation does not bound a probability. That is the honest answer, and it
+    must be reported rather than quietly assumed away."""
+    scorer = lambda c, m: m == "strong"  # noqa: E731
+
+    one = DiscriminationCheck(scorer, ["weak", "strong"], repeats=1).run(ladder_set())
+    assert one.stats["n_statistically_supported"] == 0
+
+    many = DiscriminationCheck(scorer, ["weak", "strong"], repeats=15).run(ladder_set())
+    assert many.stats["n_statistically_supported"] == 12
+
+
+def test_even_repeats_can_produce_indeterminate_cases() -> None:
+    """A 1-1 split has no majority. Reported as INDETERMINATE rather than
+    resolved by an arbitrary tie-break, with advice to use an odd count."""
+    eval_set = make_set(["tied"])
+    scorer = flaky_scorer(
+        {("tied", WEAK): [True, False], ("tied", STRONG): [True, True]}
+    )
+
+    result = DiscriminationCheck(scorer, [WEAK, STRONG], repeats=2).run(eval_set)
+
+    assert by_class(result)["indeterminate"] == 1
+    assert result.stats["case_classes"]["tied"] == "indeterminate"
+    assert "use an odd number" in messages(result)
+
+
+# --- required scenario 7: multiple models --------------------------------
+
+
+def test_four_model_ladder_reports_every_pair() -> None:
+    models = ["a", "b", "c", "d"]
+
+    def scorer(case, model):
+        return models.index(model) >= int(case.id[1:]) % 4
+
+    result = DiscriminationCheck(scorer, models).run(ladder_set(40))
+
+    # 4 choose 2 = 6 ordered pairs, all reported, not just adjacent ones.
+    assert len(result.stats["model_pairs"]) == 6
+    assert sum(1 for p in result.stats["model_pairs"] if p["adjacent"]) == 3
+    assert pair(result, "a", "d")["delta"] > pair(result, "a", "b")["delta"]
+
+
+def test_more_models_can_only_help_or_leave_alone_the_classification() -> None:
+    """Adding a middle rung must not turn a separating case into a ceiling one:
+    the extremes still disagree."""
+
+    def two(case, model):
+        return model == "large"
+
+    def three(case, model):
+        return model in ("medium", "large")
+
+    small = DiscriminationCheck(two, ["small", "large"]).run(ladder_set())
+    big = DiscriminationCheck(three, list(LADDER)).run(ladder_set())
+
+    assert by_class(small)["separating"] == 12
+    assert by_class(big)["separating"] == 12
+
+
+def test_two_models_remains_the_minimum() -> None:
+    with pytest.raises(ValueError, match="at least two models"):
+        DiscriminationCheck(lambda c, m: True, ["only-one"])
+
+
+# --- reporting contract -------------------------------------------------
+
+
+def test_every_case_gets_exactly_one_class() -> None:
+    def scorer(case, model):
+        i = int(case.id[1:])
+        return {"small": i < 3, "medium": i < 6, "large": i < 9}[model]
+
+    result = DiscriminationCheck(scorer, list(LADDER)).run(ladder_set(12))
+
+    classes = result.stats["case_classes"]
+    assert len(classes) == 12
+    assert sum(by_class(result).values()) == 12
+    ids_by_class = result.stats["case_ids_by_class"]
+    flat = [cid for ids in ids_by_class.values() for cid in ids]
+    assert sorted(flat) == sorted(classes)
+    assert len(flat) == len(set(flat)), "a case must not appear in two classes"
+
+
+def test_confidence_level_is_reported_not_assumed() -> None:
+    result = DiscriminationCheck(lambda c, m: True, ["a", "b"]).run(ladder_set())
+    assert result.stats["confidence_level"] == 0.95
+
+
+def test_intervals_are_flagged_unreliable_at_small_discordant_counts() -> None:
+    """The Wald interval on the paired difference is not trustworthy below ten
+    discordant cases, and the report must not present it as though it were."""
+
+    def scorer(case, model):
+        return model == "strong" and int(case.id[1:]) < 3
+
+    result = DiscriminationCheck(scorer, ["weak", "strong"]).run(ladder_set(40))
+    p = pair(result, "weak", "strong")
+
+    assert p["n_discordant"] == 3
+    assert p["interval_reliable"] is False
+    assert "indicative" in messages(result)

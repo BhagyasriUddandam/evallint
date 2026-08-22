@@ -33,8 +33,12 @@ import logging
 from importlib.metadata import PackageNotFoundError, version
 
 from .checks import (
+    mcnemar_exact_p,
+    minimum_detectable_effect,
+    wilson_interval,
     Check,
     CheckResult,
+    CaseClass,
     DiscriminationCheck,
     DuplicateCheck,
     Embedder,
@@ -82,6 +86,7 @@ __all__ = [
     # checks
     "Check",
     "CheckResult",
+    "CaseClass",
     "DiscriminationCheck",
     "DuplicateCheck",
     "Finding",
@@ -91,6 +96,9 @@ __all__ = [
     # scorer / embedder contracts
     "Embedder",
     "Scorer",
+    "mcnemar_exact_p",
+    "minimum_detectable_effect",
+    "wilson_interval",
     # reporting
     "render_text",
     "to_dict",

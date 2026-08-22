@@ -4,6 +4,67 @@ All notable changes to this project are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.4.0] — 2026-08-22
+
+### Changed
+- **The discrimination check is now a multi-model separation analysis.** It no
+  longer answers "do these two models agree?" but "how much evidence about
+  model separation does this eval carry, and between which capability levels?".
+
+  Five per-case outcomes, and **none of them is a defect label**: `ceiling`,
+  `floor`, `separating`, `non_monotonic`, `indeterminate`. A ceiling case may be
+  a deliberate regression guard, so the wording throughout is now "provides
+  limited evidence for model separation" — a claim about evidence, not quality.
+  The words "too easy" are gone.
+
+- **Majority verdicts instead of unanimity, which fixes a measurement bias.**
+  The previous version classified a case only when every model's verdict was
+  unanimous across repeats and discarded the rest. That filter is not neutral:
+  unanimity is likelier when a model's success probability is extreme, so
+  survivors were enriched for the ceiling category. Measured on unchanged data,
+  the reported share moved 0.52 -> 0.65 -> 0.74 -> 0.89 as repeats went
+  1 -> 2 -> 3 -> 5, while the surviving population collapsed from 100 cases to
+  9. The check's own advice was to raise repeats before trusting the figure, so
+  following it made the number worse.
+
+  Every scored case is now classified and the denominator is always `n_cases`.
+  Raising `repeats` moves cases out of `indeterminate` rather than deleting
+  them.
+
+### Added
+- **Per-pair separation with uncertainty.** Every model pair is reported, not
+  only adjacent ones, with the paired difference, an interval, an exact McNemar
+  p-value, and a minimum detectable effect. `separated`,
+  `ordering_contradicted`, `unresolved`, `no_information`. The last is distinct
+  on purpose: two models that never disagreed provide no evidence of a
+  difference, which is not evidence there is none.
+- **`evallint.checks.separation`** — Wilson intervals, exact McNemar, paired
+  difference, minimum detectable effect. Standard library only. Exported at
+  package level (`wilson_interval`, `mcnemar_exact_p`,
+  `minimum_detectable_effect`) so any number the check reports can be
+  re-derived rather than taken on trust.
+- `CaseClass` and `CaseSeparation` exported. 29 exports, up from 25.
+- New stats keys: `case_classes`, `n_by_class`, `case_ids_by_class`,
+  `limited_evidence_share` and its interval, `separating_share` and its
+  interval, `n_statistically_supported`, `model_pairs`, `separated_pairs`,
+  `contradicted_pairs`, `unresolved_pairs`, `confidence_level`.
+- `docs/methodology-discrimination.md` — the full derivation, every threshold
+  with its justification, and what the analysis cannot conclude.
+
+### Fixed
+- Wilson interval bounds are now exact at p = 0 and p = 1, where the algebra
+  gives 0 and 1 identically and floating point gave 0.9999999999999999.
+
+### Compatibility
+- `n_measured`, `n_unstable`, `non_discriminating_share`, `effective_n_cases`
+  and every `*_case_ids` key are computed exactly as before and retained, so
+  existing JSON consumers see no change. They carry the selection bias above:
+  **do not compare them across different `repeats` values.** Use
+  `limited_evidence_share`, whose denominator is fixed.
+- The scorer contract is unchanged: `scorer(case, model) -> bool | float`.
+- Finding wording and the summary line changed. Three existing tests asserted
+  on the old text and were updated.
+
 ## [0.3.0] — 2026-08-22
 
 ### Added
@@ -182,6 +243,7 @@ First release.
   `embedder=` callable instead.
 - Not an eval runner. It audits the dataset that eval runners consume.
 
+[0.4.0]: https://github.com/BhagyasriUddandam/evallint/releases/tag/v0.4.0
 [0.3.0]: https://github.com/BhagyasriUddandam/evallint/releases/tag/v0.3.0
 [0.2.0]: https://github.com/BhagyasriUddandam/evallint/releases/tag/v0.2.0
 [0.1.0]: https://github.com/BhagyasriUddandam/evallint/releases/tag/v0.1.0
