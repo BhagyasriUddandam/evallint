@@ -28,7 +28,13 @@ from pathlib import Path
 import click
 from rich.console import Console
 
-from .checks import CompareFields, ImbalanceCheck, LeakageCheck, RedundancyCheck
+from .checks import (
+    CompareFields,
+    GroundTruthCheck,
+    ImbalanceCheck,
+    LeakageCheck,
+    RedundancyCheck,
+)
 from .checks.base import CheckResult
 from .checks.duplicates import DEFAULT_MODEL, DEFAULT_THRESHOLD
 from .config import ConfigError, find_config, load_config
@@ -263,6 +269,10 @@ def main(
             min_class_share=min_class_share, min_class_count=min_class_count
         ).run(eval_set),
         LeakageCheck(overlap=leakage_overlap).run(eval_set),
+        # No judges from the CLI: an LLM analyser cannot be configured from
+        # a command line without locking the tool to one provider, exactly as
+        # with the discrimination scorer. The deterministic detectors run.
+        GroundTruthCheck().run(eval_set),
     ]
     notes = [DISCRIMINATION_NOTE]
     # Always surface a non-identity mapping. A silently wrong column choice

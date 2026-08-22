@@ -4,6 +4,68 @@ All notable changes to this project are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.0] — 2026-08-22
+
+### Added
+- **`GroundTruthCheck`** — seven deterministic detectors for references that
+  may not be well enough defined for a score against them to mean anything:
+  `multiple_valid_answers`, `subjective_question`, `missing_criteria`,
+  `ambiguous_wording`, `reference_inconsistency`, `underspecified_reference`,
+  `multiple_interpretations`.
+
+  Every finding reports case_id, ambiguity_type, evidence, confidence and a
+  recommended action. No recommended action is ever "delete". At dataset level:
+  proportion potentially ambiguous, judge agreement, and the cases needing
+  human review.
+
+- **A subjective case is not an invalid case.** "Is this response helpful?"
+  measures preference, which is a legitimate thing to measure. The finding says
+  the score is grader-dependent. A test asserts no finding contains an
+  affirmative accusation ("is invalid", "is broken", "delete this") -- and
+  requires the denials to be present, since that is the actual requirement.
+
+- **Optional multi-judge analysis, built to distrust judges.** Off unless
+  judges are passed explicitly, and evallint never calls a provider -- you
+  supply the callable, as with the scorer and embedder.
+    * one judge  -> LOW confidence, labelled single_judge_uncorroborated
+    * two or more -> only cases they AGREE on are reported; disputed cases are
+      routed to human review, because disagreement is evidence the case is hard
+      to adjudicate rather than evidence about its answer
+    * agreement reported with Fleiss' kappa, never raw agreement alone
+    * a judge that raises is recorded and the deterministic results survive
+
+- **`evallint.checks.agreement`** — Cohen's kappa, Fleiss' kappa, raw and
+  pairwise agreement. Standard library only, exported at package level. Handles
+  the kappa paradox honestly: when every rater uses one category throughout,
+  kappa is 0/0 and the functions return None. Reporting 1.0 there would claim
+  perfect reliability from raters who never made a distinction.
+
+- 33 exports, up from 32. `GroundTruthCheck` runs in the CLI (deterministic
+  detectors only -- judges cannot be configured from a command line without
+  locking the tool to one provider).
+
+### Fixed
+Both found by running against the four real public datasets rather than by
+reasoning about the code:
+
+- **Three false contradictions on MMLU.** Reference inconsistency used the
+  aggressive normaliser, which strips punctuation, so
+
+      Q(sqrt(2) + sqrt(3)) -> 1
+      Q(sqrt(2), sqrt(3))  -> 1
+      Q(sqrt(2)*sqrt(3))   -> 2
+
+  all collapsed to one string and the check reported a HIGH-confidence WARNING
+  that the dataset contradicts itself. Those are three mathematically distinct
+  field extensions. Comparison now keeps punctuation. The cost is stated: "What
+  is 2+2?" and "What is 2 + 2" are no longer compared, because a missed
+  inconsistency is a gap while a fabricated one is a confident wrong answer.
+
+- **101 warnings on HellaSwag.** It has no reference answers at all, so
+  `missing_criteria` fired on 100 of 100 cases. Correct detection, useless
+  presentation: that is one fact about the file. Any single ambiguity type
+  affecting most of the set is now reported once.
+
 ## [0.6.0] — 2026-08-22
 
 ### Added
@@ -377,6 +439,7 @@ First release.
   `embedder=` callable instead.
 - Not an eval runner. It audits the dataset that eval runners consume.
 
+[0.7.0]: https://github.com/BhagyasriUddandam/evallint/releases/tag/v0.7.0
 [0.6.0]: https://github.com/BhagyasriUddandam/evallint/releases/tag/v0.6.0
 [0.5.0]: https://github.com/BhagyasriUddandam/evallint/releases/tag/v0.5.0
 [0.4.0]: https://github.com/BhagyasriUddandam/evallint/releases/tag/v0.4.0

@@ -16,6 +16,8 @@ from .separation import (
 )
 from .duplicates import DuplicateCheck, Embedder, MissingEmbeddingsError
 from .imbalance import ImbalanceCheck
+from .agreement import cohens_kappa, fleiss_kappa, pairwise_agreement, raw_agreement
+from .ground_truth import AmbiguityJudge, GroundTruthCheck
 from .leakage import LeakageCheck
 from .redundancy import (
     CompareFields,
@@ -24,6 +26,7 @@ from .redundancy import (
 )
 
 __all__ = [
+    "AmbiguityJudge",
     "CaseClass",
     "CompareFields",
     "CaseSeparation",
@@ -34,6 +37,7 @@ __all__ = [
     "Embedder",
     "Finding",
     "ImbalanceCheck",
+    "GroundTruthCheck",
     "LeakageCheck",
     "RedundancyCheck",
     "RedundancyLevel",
@@ -47,4 +51,10 @@ __all__ = [
     "minimum_detectable_effect",
     "paired_difference",
     "wilson_interval",
+    # inter-rater agreement, exported so a judge-reliability figure can be
+    # re-derived rather than taken on trust
+    "cohens_kappa",
+    "fleiss_kappa",
+    "pairwise_agreement",
+    "raw_agreement",
 ]

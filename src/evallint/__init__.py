@@ -15,6 +15,7 @@ The four checks:
 
     ImbalanceCheck        class distribution, imbalance ratio, basic stats
     LeakageCheck          cases whose expected answer is in their own input
+    GroundTruthCheck      cases whose reference may be under-specified
     RedundancyCheck       redundancy at five levels, and scenario weighting
     DuplicateCheck        near-duplicate cases via embedding similarity
                           (needs the optional `evallint[embeddings]` extra, or
@@ -46,6 +47,7 @@ from .checks import (
     Finding,
     ImbalanceCheck,
     CompareFields,
+    GroundTruthCheck,
     LeakageCheck,
     RedundancyCheck,
     RedundancyLevel,
@@ -96,6 +98,7 @@ __all__ = [
     "Finding",
     "ImbalanceCheck",
     "CompareFields",
+    "GroundTruthCheck",
     "LeakageCheck",
     "RedundancyCheck",
     "RedundancyLevel",

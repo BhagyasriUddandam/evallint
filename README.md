@@ -26,6 +26,42 @@ reference answer and grader before blaming difficulty), and `inverted` (a *weake
 passed where a stronger one failed — usually a broken reference answer, and worth more
 than either).
 
+**Ground-truth quality, seven deterministic detectors plus optional judges.**
+Cases whose reference answer may not be well enough defined for a score against
+it to mean anything: `multiple_valid_answers`, `subjective_question`,
+`missing_criteria`, `ambiguous_wording`, `reference_inconsistency`,
+`underspecified_reference`, `multiple_interpretations`.
+
+Each finding reports **case_id, ambiguity_type, evidence, confidence and a
+recommended action** — and no recommended action is ever "delete". At dataset
+level: the proportion potentially ambiguous, judge agreement, and the set of
+cases needing human review.
+
+**A subjective case is not an invalid case.** "Is this response helpful?" has no
+single right answer, and an eval of such questions measures preference, which is
+a real thing to measure. The finding says the score will be *grader-dependent* —
+information for reading the number, not a defect to remove.
+
+**Judges are optional, and the design distrusts them.** No LLM analysis happens
+unless you pass judges explicitly, and evallint never calls a provider — you
+supply the callable, as with the scorer:
+
+```python
+GroundTruthCheck(judges={"a": my_judge_a, "b": my_judge_b}).run(eval_set)
+```
+
+- **One judge** → findings capped at LOW confidence and labelled
+  `single_judge_uncorroborated`. One model's opinion about ambiguity is an opinion.
+- **Two or more** → only cases they *agree* on are reported. Cases they dispute
+  are routed to human review, because disagreement is evidence the case is hard
+  to adjudicate, not evidence about its answer.
+- Agreement is reported with **Fleiss' kappa**, never raw agreement alone — on a
+  skewed set two judges agree most of the time by accident. When every judge
+  gives every case the same verdict, kappa is **undefined** and reported as such
+  rather than as 1.0.
+- **Agreement is not correctness.** Judges from one model family share their
+  blind spots, so correlated error looks exactly like reliability.
+
 **Leakage, seven deterministic detectors.** A case whose answer can be read off
 its own prompt inflates the score while measuring reading. **No LLM judge is used
 at any confidence level** — every detector is a deterministic function of the text:
@@ -639,7 +675,7 @@ runner.
 ## Development
 
 ```bash
-uv run pytest    # 425 tests
+uv run pytest    # 499 tests
 ```
 
 Every check is tested both ways: it must **fire on known-bad input** and **stay quiet on
