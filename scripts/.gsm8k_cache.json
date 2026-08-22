@@ -1,0 +1,1602 @@
+{
+  "01c2b3955f005f65336c21603a901787e45fdafde7591e9f0997018fac78b178": {
+    "model": "claude-haiku-4-5",
+    "text": "Let me work through this step-by-step.\n\n**Eggs laid per day:** 16\n\n**Eggs used:**\n- Eaten for breakfast: 3\n- Used for baking muffins: 4\n- Total used: 3 + 4 = 7\n\n**Eggs remaining to sell:**\n16 - 7 = 9 eggs\n\n**Revenue from selling at farmers' market:**\n9 eggs \u00d7 $2 per egg = $18\n\nANSWER: 18",
+    "usage": {
+      "input": 131,
+      "output": 115
+    }
+  },
+  "64801c2df9b8ed39eb7873a68b63b87bce404093ef5e9d8bcaba4d22d5b3f5c7": {
+    "model": "claude-opus-5",
+    "text": "16 \u2212 3 \u2212 4 = 9 eggs sold, at $2 each = $18.\n\nANSWER: 18",
+    "usage": {
+      "input": 177,
+      "output": 51
+    }
+  },
+  "22e4fed192e17ce77592ee7188a9e6f21508585df4dc2394b31cea4c4c506e7f": {
+    "model": "claude-haiku-4-5",
+    "text": "Let me break this down step by step:\n\n**Sprints per session:** 3 sprints\n**Sessions per week:** 3 times a week\n**Distance per sprint:** 60 meters\n\n**Total sprints per week:** 3 sprints \u00d7 3 sessions = 9 sprints\n\n**Total meters per week:** 9 sprints \u00d7 60 meters = 540 meters\n\nANSWER: 540",
+    "usage": {
+      "input": 100,
+      "output": 99
+    }
+  },
+  "ff270528cc7dc7e468a14d1c7220010c18f1854e70564de95ab13c3028f1cec2": {
+    "model": "claude-haiku-4-5",
+    "text": "Looking at this problem, I need to find how much feed Wendi needs in the final meal.\n\n**Total daily feed needed:**\n- Each chicken needs: 3 cups per day\n- Number of chickens: 20\n- Total daily feed = 3 \u00d7 20 = 60 cups\n\n**Feed already given:**\n- Morning: 15 cups\n- Afternoon: 25 cups\n- Total so far: 15 + 25 = 40 cups\n\n**Feed needed for final meal:**\n- Final meal = 60 - 40 = 20 cups\n\nANSWER: 20",
+    "usage": {
+      "input": 185,
+      "output": 142
+    }
+  },
+  "22943315ec8035f66fbb13b2a6710421670fd59a605c1b46570ecc979e3c215c": {
+    "model": "claude-haiku-4-5",
+    "text": "Let me work through this step by step.\n\n**Blue fiber:** 2 bolts\n\n**White fiber:** Half of the blue fiber = 2 \u00f7 2 = 1 bolt\n\n**Total bolts:** 2 + 1 = 3 bolts\n\nANSWER: 3",
+    "usage": {
+      "input": 93,
+      "output": 73
+    }
+  },
+  "cc4b8220bcdb6373a51c1d9350bf8cc551535903da2e34920a3948a18ec2ea33": {
+    "model": "claude-opus-5",
+    "text": "20 chickens \u00d7 3 cups = 60 cups total; 15 + 25 = 40 given; 60 \u2212 40 = 20.\n\nANSWER: 20",
+    "usage": {
+      "input": 247,
+      "output": 69
+    }
+  },
+  "6b03d8b0fc96df7a8bbb8a30cdaed4a4b163923851cdd9adde5c9f881250bb7d": {
+    "model": "claude-opus-5",
+    "text": "3 sprints \u00d7 3 times = 9 sprints; 9 \u00d7 60 = 540 meters.\n\nANSWER: 540",
+    "usage": {
+      "input": 126,
+      "output": 62
+    }
+  },
+  "ce6045a27fe14276a337f3c524211283e6bc927cd7b5eaf659303c63e388ec51": {
+    "model": "claude-haiku-4-5",
+    "text": "Looking at this step-by-step:\n\n**Josh's total investment:**\n- Purchase price: $80,000\n- Repairs: $50,000\n- Total invested: $80,000 + $50,000 = $130,000\n\n**Finding the new value:**\nThe repairs increased the house value by 150% of the original purchase price.\n- 150% of $80,000 = 1.5 \u00d7 $80,000 = $120,000\n- New value = Original value + Increase\n- New value = $80,000 + $120,000 = $200,000\n\n**Calculating profit:**\n- Profit = New value - Total investment\n- Profit = $200,000 - $130,000 = $70,000\n\nANSWER: 70000",
+    "usage": {
+      "input": 116,
+      "output": 185
+    }
+  },
+  "91ceb89d53506f528006152bb9f472fc7552057f0528ba0b4097ee211437d27a": {
+    "model": "claude-opus-5",
+    "text": "Cost: 80,000 + 50,000 = 130,000. New value: 80,000 \u00d7 2.5 = 200,000. Profit = 70,000.\n\nANSWER: 70000",
+    "usage": {
+      "input": 145,
+      "output": 97
+    }
+  },
+  "a7a597bf4416cd133ba86b03b297269c408af838471fe244e5a384131ae432dc": {
+    "model": "claude-haiku-4-5",
+    "text": "I need to find the total cost of 16 glasses where every second glass costs 60% of the regular price.\n\nLet me break this down:\n- Regular price per glass: $5\n- Every second glass costs: 60% of $5 = 0.6 \u00d7 $5 = $3\n\nFor 16 glasses:\n- Glasses 1, 3, 5, 7, 9, 11, 13, 15 are at full price ($5 each) \u2192 8 glasses\n- Glasses 2, 4, 6, 8, 10, 12, 14, 16 are at discounted price ($3 each) \u2192 8 glasses\n\nTotal cost:\n- Full price glasses: 8 \u00d7 $5 = $40\n- Discounted glasses: 8 \u00d7 $3 = $24\n- Total: $40 + $24 = $64\n\nANSWER: 64",
+    "usage": {
+      "input": 118,
+      "output": 220
+    }
+  },
+  "2a459226c027d99a0106134a6bd9b9fdadb7ebf167781ddc036229d0fafc4e41": {
+    "model": "claude-haiku-4-5",
+    "text": "Let me work through this step-by-step.\n\n**Seattle's sheep:** 20\n\n**Charleston's sheep:** 4 times as many as Seattle\n- Charleston = 4 \u00d7 20 = 80\n\n**Toulouse's sheep:** Twice as many as Charleston\n- Toulouse = 2 \u00d7 80 = 160\n\n**Total sheep together:**\n- 20 + 80 + 160 = 260\n\nANSWER: 260",
+    "usage": {
+      "input": 106,
+      "output": 106
+    }
+  },
+  "6250168a502b1c0fd6cc855815998594566f4c51eddc87094d073b417553b37e": {
+    "model": "claude-opus-5",
+    "text": "8 full-price glasses at $5 = $40; 8 discounted at $3 = $24; total $64.\n\nANSWER: 64",
+    "usage": {
+      "input": 153,
+      "output": 69
+    }
+  },
+  "1884245ae2d6c587bcd4e0381731ab42d234aa1fe0185c77ddc2eade3bc19bef": {
+    "model": "claude-opus-5",
+    "text": "Seattle 20, Charleston 80, Toulouse 160 \u2192 total 260.\n\nANSWER: 260",
+    "usage": {
+      "input": 158,
+      "output": 66
+    }
+  },
+  "8bb98b60ab007aff4f233fb4a33a78e0d99edca40cabeb4bfd0c50edf57f1cd1": {
+    "model": "claude-opus-5",
+    "text": "2 bolts blue + 1 bolt white = 3.\n\nANSWER: 3",
+    "usage": {
+      "input": 120,
+      "output": 41
+    }
+  },
+  "8085e4aca7241f0c41d06443b571774601a79e7f981f308a51338f3a4dd4c037": {
+    "model": "claude-haiku-4-5",
+    "text": "Let me break this down step by step.\n\n**Regular pay (first 40 hours):**\n- Rate: $10 per hour\n- Hours: 40\n- Earnings: 40 \u00d7 $10 = $400\n\n**Overtime pay (hours beyond 40):**\n- Hours: 45 - 40 = 5 hours\n- Overtime rate: 1.2 \u00d7 $10 = $12 per hour\n- Earnings: 5 \u00d7 $12 = $60\n\n**Total earnings:**\n$400 + $60 = $460\n\nANSWER: 460",
+    "usage": {
+      "input": 126,
+      "output": 140
+    }
+  },
+  "ade90c4541bc3b4186177732a28d2b9ab3df3313426bb8b85e5b6a803f7d1ee3": {
+    "model": "claude-haiku-4-5",
+    "text": "I need to find the total time for Carla to download the 200 GB file, accounting for the restart interruption.\n\n**First download attempt:**\n- Carla downloads 40% of 200 GB = 0.4 \u00d7 200 = 80 GB\n- At 2 GB/minute: 80 \u00f7 2 = 40 minutes\n- Then Windows restart: 20 minutes\n- Total so far: 40 + 20 = 60 minutes\n\n**Second download attempt:**\n- Carla must download the entire 200 GB file from the beginning\n- At 2 GB/minute: 200 \u00f7 2 = 100 minutes\n\n**Total time:**\n60 + 100 = 160 minutes\n\nANSWER: 160",
+    "usage": {
+      "input": 136,
+      "output": 189
+    }
+  },
+  "8888682bec36fa9df046673dead45dbe9b76fc6f146cf1eabe76ff385428d5a0": {
+    "model": "claude-opus-5",
+    "text": "40% of 200 GB = 80 GB \u2192 40 minutes. Restart: 20 minutes. Then full download: 100 minutes. Total 160.\n\nANSWER: 160",
+    "usage": {
+      "input": 173,
+      "output": 89
+    }
+  },
+  "bfcdb332a8d59a68feee12a3bca483557d331ea585b0131b156b250b0bc7405f": {
+    "model": "claude-haiku-4-5",
+    "text": "Let me work through this step-by-step.\n\n**First month:** 60 downloads\n\n**Second month:** Three times the first month\n- 3 \u00d7 60 = 180 downloads\n\n**Third month:** Reduced by 30% from the second month\n- 30% of 180 = 0.30 \u00d7 180 = 54\n- 180 - 54 = 126 downloads\n\n**Total downloads over three months:**\n- 60 + 180 + 126 = 366\n\nANSWER: 366",
+    "usage": {
+      "input": 122,
+      "output": 128
+    }
+  },
+  "df5502ddd4442e5d7ac1b2d5e2880793305e6138c421375968cc1cecc95357af": {
+    "model": "claude-opus-5",
+    "text": "400 + 5\u00d712 = 460\n\nANSWER: 460",
+    "usage": {
+      "input": 161,
+      "output": 44
+    }
+  },
+  "1327150a11be9ce9ab8f0f712a985d6b4431d005651b19528172891ed923aff2": {
+    "model": "claude-haiku-4-5",
+    "text": "Let me calculate the cost of each type of pastry:\n\n**Donuts:**\n- 3 dozen \u00d7 $68 per dozen = $204\n\n**Mini cupcakes:**\n- 2 dozen \u00d7 $80 per dozen = $160\n\n**Mini cheesecakes:**\n- 6 dozen \u00d7 $55 per dozen = $330\n\n**Total cost:**\n$204 + $160 + $330 = $694\n\nANSWER: 694",
+    "usage": {
+      "input": 135,
+      "output": 107
+    }
+  },
+  "659826929cb0f81ff1c9be0fc3f7b22d7f0f358c07d2c6e2da3c0c61d07d91c7": {
+    "model": "claude-opus-5",
+    "text": "First month: 60. Second: 180. Third: 180 \u2212 30% = 126. Total: 60+180+126 = 366.\n\nANSWER: 366",
+    "usage": {
+      "input": 151,
+      "output": 74
+    }
+  },
+  "310b7a0600f0907eb6a88c431f01028d8739859997942dad097333320e259232": {
+    "model": "claude-opus-5",
+    "text": "He drives 3\u00d760=180 miles out.\nReturn: 2 hours at 0 = 0; 0.5 hour at 30 = 15; remaining 1.5 hours at 80 = 120. Total back = 135.\n180 \u2212 135 = 45 miles.\n\nANSWER: 45",
+    "usage": {
+      "input": 218,
+      "output": 138
+    }
+  },
+  "829305c83b43b9e52d0b9ea7900ee3ff57097aad8f1bd364ed5b5e96739846b3": {
+    "model": "claude-opus-5",
+    "text": "3\u00d768=204, 2\u00d780=160, 6\u00d755=330; total 694.\n\nANSWER: 694",
+    "usage": {
+      "input": 180,
+      "output": 44
+    }
+  },
+  "6452a0b338a59b6cc011d1eeb7fd99355a17d76bbb339cdf189de1907ad9d8df": {
+    "model": "claude-haiku-4-5",
+    "text": "I need to find John's position relative to home after the 4-hour return trip.\n\n**Initial drive away from home:**\n- Speed: 60 mph\n- Time: 3 hours\n- Distance from home: 60 \u00d7 3 = 180 miles\n\n**Return trip (4 hours total):**\n\nLet me set up a coordinate system where home is at position 0, and positive direction is away from home.\n\nStarting position for return trip: 180 miles from home\n\nNow tracking the return trip:\n\n1. **First 2 hours - standstill traffic:**\n   - Distance traveled: 0 miles\n   - Position: 180 miles from home\n\n2. **Next 0.5 hours - driving at 30 mph:**\n   - Distance traveled: 30 \u00d7 0.5 = 15 miles (toward home, so -15)\n   - Position: 180 - 15 = 165 miles from home\n\n3. **Remaining time at 80 mph:**\n   - Total time used so far: 2 + 0.5 = 2.5 hours\n   - Remaining time: 4 - 2.5 = 1.5 hours\n   - Distance traveled: 80 \u00d7 1.5 = 120 miles (toward home, so -120)\n   - Position: 165 - 120 = 45 miles from home\n\nJohn is 45 miles from home at the end of the 4 hours.\n\nANSWER: 45",
+    "usage": {
+      "input": 175,
+      "output": 354
+    }
+  },
+  "4dfaa14ecd61e520a9b4c0666f35235f7bb6dae3869dbefa2078e35ed155417d": {
+    "model": "claude-haiku-4-5",
+    "text": "I need to find when Carlos's total profit becomes positive (when revenue exceeds costs).\n\nLet me set up the problem:\n- Initial cost: $90\n- Revenue per year: 7 lemons \u00d7 $1.50 = $10.50\n- Cost per year: $3\n- Net profit per year: $10.50 - $3 = $7.50\n\nAfter n years:\n- Total revenue: $10.50n\n- Total costs: $90 + $3n\n- Net profit: $10.50n - $90 - $3n = $7.50n - $90\n\nI need to find when net profit > 0:\n$7.50n - $90 > 0\n$7.50n > $90\nn > $90 \u00f7 $7.50\nn > 12\n\nLet me verify:\n- After 12 years: $7.50(12) - $90 = $90 - $90 = $0 (breaks even)\n- After 13 years: $7.50(13) - $90 = $97.50 - $90 = $7.50 (positive profit)\n\nSo he starts earning money (making a profit) after 13 years.\n\nANSWER: 13",
+    "usage": {
+      "input": 136,
+      "output": 296
+    }
+  },
+  "f4978f13e9afa7ab7e8d429a1f87ba5a81d8ac8bf9eeb78c8243dc450cd7878d": {
+    "model": "claude-opus-5",
+    "text": "Each year: 7\u00d7$1.5 = $10.50 income, minus $3 costs = $7.50 net per year. $90 \u00f7 $7.50 = 12 years.\n\nANSWER: 12",
+    "usage": {
+      "input": 174,
+      "output": 96
+    }
+  },
+  "7788ab10d3cdae8141635f706644967a619dc86f906936b0dfc47c51601df694": {
+    "model": "claude-haiku-4-5",
+    "text": "Let me work through this step-by-step.\n\n**Total students:** 20\n\n**Step 1: Find students in contemporary dance**\n- 20% of 20 = 0.20 \u00d7 20 = 4 students\n\n**Step 2: Find remaining students after contemporary**\n- 20 - 4 = 16 students remaining\n\n**Step 3: Find students in jazz dance**\n- 25% of the remaining 16 = 0.25 \u00d7 16 = 4 students\n\n**Step 4: Find students in hip-hop dance**\n- 20 - 4 - 4 = 12 students\n\n**Step 5: Find the percentage for hip-hop**\n- (12/20) \u00d7 100% = 60%\n\nANSWER: 60",
+    "usage": {
+      "input": 115,
+      "output": 189
+    }
+  },
+  "fa5ebc7de634b55baf89869da00f458d9c95c6af6c2169f6181ae66db6314260": {
+    "model": "claude-haiku-4-5",
+    "text": "I need to calculate the profit from each option and determine which gives the maximum profit.\n\n**Jewelry Option:**\n- Initial cost: $5,000\n- Market increase: 2.5%\n- Profit = $5,000 \u00d7 2.5% = $5,000 \u00d7 0.025 = $125\n\n**Electronic Gadgets Option:**\n- Initial cost: $8,000\n- Market increase: 1.2%\n- Profit = $8,000 \u00d7 1.2% = $8,000 \u00d7 0.012 = $96\n\n**Comparison:**\n- Jewelry profit: $125\n- Electronic gadgets profit: $96\n\nThe merchant should choose jewelry to maximize profit, earning $125.\n\nANSWER: 125",
+    "usage": {
+      "input": 157,
+      "output": 176
+    }
+  },
+  "268844b403b908f5e3c0bd9c1479cc5828bd75572cb3958b7b526ddea718c9d2": {
+    "model": "claude-haiku-4-5",
+    "text": "I need to work backwards from the 5 vacuum cleaners Melanie has left.\n\nLet me call the starting number of vacuum cleaners x.\n\n**Step 1: Green house**\n- She sold 1/3 of x\n- Remaining: x - x/3 = 2x/3\n\n**Step 2: Red house**\n- She sold 2 more\n- Remaining: 2x/3 - 2\n\n**Step 3: Orange house**\n- She sold half of what was left\n- That means half of (2x/3 - 2) was sold\n- Remaining: (2x/3 - 2) - (2x/3 - 2)/2 = (2x/3 - 2)/2\n\n**Step 4: Final amount**\n- She has 5 left, so:\n- (2x/3 - 2)/2 = 5\n\n**Solving:**\n- 2x/3 - 2 = 10\n- 2x/3 = 12\n- 2x = 36\n- x = 18\n\n**Verification:**\n- Start: 18\n- Green house: sold 18/3 = 6, left with 12\n- Red house: sold 2, left with 10\n- Orange house: sold 10/2 = 5, left with 5 \u2713\n\nANSWER: 18",
+    "usage": {
+      "input": 130,
+      "output": 333
+    }
+  },
+  "79ae54bb81a7a46e2f5d7097e155aa7fe13777773b2afa91944c7f1b9ca545ee": {
+    "model": "claude-opus-5",
+    "text": "Work backwards: 5 left is half after orange, so 10 before orange; +2 = 12 = two-thirds of start; start = 18.\n\nANSWER: 18",
+    "usage": {
+      "input": 166,
+      "output": 125
+    }
+  },
+  "b96f3504651c018c130d1ba8fc2819e4b0b985e36f78c43f1d7080cad89be654": {
+    "model": "claude-haiku-4-5",
+    "text": "I need to find the total distance traveled by each train over the two days.\n\n**Day 1 (Westward travel):**\n- Each train travels 80 miles west\n\n**Day 2 (Northward travel):**\n- Each train travels 150 miles north\n\n**Total distance covered by each train:**\n80 miles + 150 miles = 230 miles\n\nSince both trains travel the same route (80 miles west, then 150 miles north), each train covers the same total distance.\n\nANSWER: 230",
+    "usage": {
+      "input": 115,
+      "output": 123
+    }
+  },
+  "17d0143835b5ac0947e38c7bbeb778b922dcc710ecd2c5ed84b35a128e760191": {
+    "model": "claude-haiku-4-5",
+    "text": "I need to calculate Jill's annual salary from both jobs.\n\n**Teaching salary:**\n- $20 per hour\n- 35 hours per week\n- 50 weeks per year\n- Weekly: 35 \u00d7 $20 = $700\n- Annual: $700 \u00d7 50 = $35,000\n\n**Coaching salary:**\n- $30 per hour\n- 15 hours per week\n- 50 weeks per year\n- Weekly: 15 \u00d7 $30 = $450\n- Annual: $450 \u00d7 50 = $22,500\n\n**Total annual salary:**\n$35,000 + $22,500 = $57,500\n\nANSWER: 57500",
+    "usage": {
+      "input": 123,
+      "output": 164
+    }
+  },
+  "27a5ab909d2e05b0d70ba4494455e7f76ab702da12df14e0f7f4a39b6bdc51c4": {
+    "model": "claude-opus-5",
+    "text": "4 contemporary; 16 left; 4 jazz; 12 hip-hop \u2192 12/20 = 60%\n\nANSWER: 60",
+    "usage": {
+      "input": 166,
+      "output": 97
+    }
+  },
+  "9f3b89d99c0906e10a9c539272cc84352473ce6da75bcfde50adc883b4ef4f34": {
+    "model": "claude-haiku-4-5",
+    "text": "Let me work through this step-by-step.\n\n**Find total eggs eaten:**\n- Claire eats 3 eggs per morning\n- In 4 weeks, there are 4 \u00d7 7 = 28 days\n- Total eggs = 3 \u00d7 28 = 84 eggs\n\n**Convert to dozens:**\n- 1 dozen = 12 eggs\n- 84 \u00f7 12 = 7 dozens\n\nANSWER: 7",
+    "usage": {
+      "input": 92,
+      "output": 111
+    }
+  },
+  "f988422afd5ddee47ffcad315d12d2ac114915d66cc2b4cf7e4119c0003e497c": {
+    "model": "claude-opus-5",
+    "text": "Each train travels 80 miles west, then 150 miles north: 80 + 150 = 230 miles.\n\nANSWER: 230",
+    "usage": {
+      "input": 152,
+      "output": 53
+    }
+  },
+  "0e4defbe8c669880e3c98b2753878608bca9897bc49c0b5820e1623f7a7c838c": {
+    "model": "claude-opus-5",
+    "text": "3 eggs/day \u00d7 28 days = 84 eggs = 7 dozen.\n\nANSWER: 7",
+    "usage": {
+      "input": 127,
+      "output": 56
+    }
+  },
+  "10c81e9e37a7bb336d9ebdf3cfa6807c7f1af82b5074d7699a628d6901d298b3": {
+    "model": "claude-opus-5",
+    "text": "Jewelry: 5000\u00d72.5% = $125. Gadgets: 8000\u00d71.2% = $96. Max profit = $125.\n\nANSWER: 125",
+    "usage": {
+      "input": 214,
+      "output": 79
+    }
+  },
+  "1f961e568a14db13da355b2614e094ff158f68014691a44d791092256b5275d2": {
+    "model": "claude-haiku-4-5",
+    "text": "I need to find the speed Marissa needs to walk the remaining distance so her average speed for the entire trail is 4 mph.\n\n**Given information:**\n- Total trail distance: 12 miles\n- First 4 miles: took 1 hour\n- Next 2 miles: took 1 hour\n- Desired average speed: 4 mph\n\n**Find the time needed for the whole trail:**\nIf average speed = 4 mph and total distance = 12 miles:\n- Total time needed = Distance \u00f7 Speed = 12 \u00f7 4 = 3 hours\n\n**Find time already spent:**\n- Time spent on first 4 miles: 1 hour\n- Time spent on next 2 miles: 1 hour\n- Total time spent so far: 2 hours\n\n**Find remaining distance and time:**\n- Distance covered so far: 4 + 2 = 6 miles\n- Remaining distance: 12 - 6 = 6 miles\n- Remaining time available: 3 - 2 = 1 hour\n\n**Find required speed for remaining distance:**\n- Speed = Distance \u00f7 Time = 6 \u00f7 1 = 6 mph\n\nANSWER: 6",
+    "usage": {
+      "input": 132,
+      "output": 295
+    }
+  },
+  "78a45faac1e9cb10baf0c920976e6b5d1a1d57308c2cb2bf8667a2ed5d594861": {
+    "model": "claude-haiku-4-5",
+    "text": "Let me work through this step-by-step.\n\n**First 3 customers:** 1 DVD each\n- 3 \u00d7 1 = 3 DVDs\n\n**Next 2 customers:** 2 DVDs each\n- 2 \u00d7 2 = 4 DVDs\n\n**Last 3 customers:** 0 DVDs each\n- 3 \u00d7 0 = 0 DVDs\n\n**Total DVDs sold:** 3 + 4 + 0 = 7 DVDs\n\nANSWER: 7",
+    "usage": {
+      "input": 127,
+      "output": 130
+    }
+  },
+  "f73fc532c1b3cbc3358caa3729c9ae28d35ca92d318f6831ccb038e24b88fc36": {
+    "model": "claude-opus-5",
+    "text": "Teaching: 35\u00d7$20=$700/week. Coaching: 15\u00d7$30=$450/week. Total $1150/week \u00d7 50 = $57,500.\n\nANSWER: 57500",
+    "usage": {
+      "input": 158,
+      "output": 88
+    }
+  },
+  "47203ebb1687e1bdcb454785426ed8760f2682b379105df340713112b3ddb4f7": {
+    "model": "claude-haiku-4-5",
+    "text": "Let me work through this step-by-step.\n\n**Orange drink initially:**\n- Volume: 10 liters\n- Water content: 2/3 \u00d7 10 = 20/3 liters\n- Non-water content: 1/3 \u00d7 10 = 10/3 liters\n\n**After spilling 1 liter of orange drink:**\n- The spilled liter has the same composition (2/3 water, 1/3 non-water)\n- Orange drink remaining: 9 liters\n- Water in remaining orange: 2/3 \u00d7 9 = 6 liters\n- Non-water in remaining orange: 1/3 \u00d7 9 = 3 liters\n\n**Pineapple drink:**\n- Volume: 15 liters\n- Water content: 3/5 \u00d7 15 = 9 liters\n- Non-water content: 2/5 \u00d7 15 = 6 liters\n\n**Combined mixture:**\n- Total volume: 9 + 15 = 24 liters \u2713\n- Total water: 6 + 9 = 15 liters\n\nANSWER: 15",
+    "usage": {
+      "input": 135,
+      "output": 283
+    }
+  },
+  "181953d614fbd8198f910425b2de1867a8d2e169ca2f531f4f2a0ef1b04b8d56": {
+    "model": "claude-opus-5",
+    "text": "Total time allowed: 12/4 = 3 hours; 2 used, 1 left for remaining 6 miles \u2192 6 mph.\n\nANSWER: 6",
+    "usage": {
+      "input": 173,
+      "output": 106
+    }
+  },
+  "5dfaff47acf644e25331b62cbb97ffa17456d92ce4bcc72162e1d86d16a61dd8": {
+    "model": "claude-haiku-4-5",
+    "text": "Let me work through this step-by-step.\n\n**Given information:**\n- Raymond was born 6 years before Samantha\n- Raymond had a son at age 23\n- Samantha is now 31\n\n**Find Raymond's current age:**\nSince Raymond was born 6 years before Samantha, and Samantha is now 31:\n- Raymond's current age = 31 + 6 = 37 years old\n\n**Find when Raymond's son was born:**\nRaymond had his son at age 23, so:\n- Years ago that Raymond's son was born = Raymond's current age - age when son was born\n- Years ago = 37 - 23 = 14 years ago\n\nANSWER: 14",
+    "usage": {
+      "input": 114,
+      "output": 169
+    }
+  },
+  "3eff651074bdd63c706fb981bd19ef3688fc5158a223054bca146876de1bf91b": {
+    "model": "claude-opus-5",
+    "text": "Orange left: 9 L \u00d7 2/3 = 6 L water. Pineapple: 15 \u00d7 3/5 = 9 L water. Total = 15 L.\n\nANSWER: 15",
+    "usage": {
+      "input": 166,
+      "output": 110
+    }
+  },
+  "18cf25facf6bfd30711b78b50afc43ac323db87dedfcd15486e65bf74b9ef15c": {
+    "model": "claude-opus-5",
+    "text": "3 + 4 + 0 = 7 DVDs.\n\nANSWER: 7",
+    "usage": {
+      "input": 177,
+      "output": 37
+    }
+  },
+  "d382ae478b7c3066440335f6eae6df39114d5f772d5e4a9ec14f0c97b6f6fa73": {
+    "model": "claude-opus-5",
+    "text": "Raymond is 31+6=37 now; his son was born when he was 23, so 37\u221223=14 years ago.\n\nANSWER: 14",
+    "usage": {
+      "input": 150,
+      "output": 78
+    }
+  },
+  "82246085429198c0d2ced0cfb1e69113abfb69bc3af324717c4331eb218494da": {
+    "model": "claude-haiku-4-5",
+    "text": "I need to find how much the candle melts during the given time period.\n\n**Time period:**\n- Start: 1:00 PM\n- End: 5:00 PM\n- Duration: 5:00 PM - 1:00 PM = 4 hours\n\n**Melting rate:**\n- 2 centimeters per hour\n\n**Total melting:**\n- 4 hours \u00d7 2 centimeters/hour = 8 centimeters\n\nThe candle will be 8 centimeters shorter.\n\nANSWER: 8",
+    "usage": {
+      "input": 109,
+      "output": 132
+    }
+  },
+  "e14d5fecc0ec81def65e881178e15124e0344235200828bdc33b0e6ff0bafeff": {
+    "model": "claude-opus-5",
+    "text": "4 hours of burning \u00d7 2 cm = 8 cm.\n\nANSWER: 8",
+    "usage": {
+      "input": 137,
+      "output": 42
+    }
+  },
+  "94a17b81809622361e06fec2047c082d5e474f18a25182cedf5ba04a3a99641f": {
+    "model": "claude-haiku-4-5",
+    "text": "I need to find the original price when I know the discounted price and the discount percentage.\n\nLet me call the original price P.\n\nIf there's a 25% discount, Kyle pays 75% of the original price (100% - 25% = 75%).\n\nSo: 0.75 \u00d7 P = $19.50\n\nTo find P: P = $19.50 \u00f7 0.75\n\nP = $26.00\n\nLet me verify: 25% of $26.00 = 0.25 \u00d7 $26.00 = $6.50\n$26.00 - $6.50 = $19.50 \u2713\n\nANSWER: 26",
+    "usage": {
+      "input": 100,
+      "output": 161
+    }
+  },
+  "662a37bd35f75ffdd41e02774ad5d950afecf699cefaa0e765219e274eda001b": {
+    "model": "claude-opus-5",
+    "text": "19.50 is 75% of original: 19.50 \u00f7 0.75 = 26.\n\nANSWER: 26",
+    "usage": {
+      "input": 125,
+      "output": 55
+    }
+  },
+  "53eef633a0aef94a7bc538b56c2d7fc56ffb2c4551b5c19c280522b452ab4dde": {
+    "model": "claude-haiku-4-5",
+    "text": "I need to find the total amount Mishka spent on all clothing items.\n\n**Shorts:**\n- 3 pairs at $16.50 per pair\n- Cost: 3 \u00d7 $16.50 = $49.50\n\n**Pants:**\n- 3 pairs at $22.50 per pair\n- Cost: 3 \u00d7 $22.50 = $67.50\n\n**Shoes:**\n- 3 pairs at $42 per pair\n- Cost: 3 \u00d7 $42 = $126\n\n**Total spending:**\n$49.50 + $67.50 + $126 = $243\n\nANSWER: 243",
+    "usage": {
+      "input": 132,
+      "output": 154
+    }
+  },
+  "4e4963f401797677ba061c814c826a737e70ab4ceefe10974ffc92198996b57d": {
+    "model": "claude-haiku-4-5",
+    "text": "Looking at this problem step by step:\n\n**Given information:**\n- Cynthia eats 1 serving per night\n- Each carton has 15 servings\n- Each carton costs $4.00\n- Time period: 60 days\n\n**Solution:**\n- After 60 days, she will have eaten: 60 servings\n- Number of cartons needed: 60 \u00f7 15 = 4 cartons\n- Total cost: 4 cartons \u00d7 $4.00 per carton = $16.00\n\nANSWER: 16",
+    "usage": {
+      "input": 127,
+      "output": 136
+    }
+  },
+  "2ef51ae9f520903c351367ed3f7fef97d93a24293b7e4a3654f4f607662a1191": {
+    "model": "claude-opus-5",
+    "text": "4 cartons \u00d7 $4 = $16.\n\nANSWER: 16",
+    "usage": {
+      "input": 159,
+      "output": 39
+    }
+  },
+  "2d9bd927e408246c70ae0cbe1422444ade6d77cf44ebec242f5ad8d6f011b010": {
+    "model": "claude-haiku-4-5",
+    "text": "Let me break down Marie's purchases and find how many pizza boxes she ordered.\n\n**Known costs:**\n- 1 chicken meal: $12\n- 5 packs of milk at $3 each: 5 \u00d7 $3 = $15\n- 4 apples at $1.50 each: 4 \u00d7 $1.50 = $6\n- Pizza boxes at $8.50 each: unknown quantity\n\n**Total spent:** $50\n\n**Calculation:**\nTotal for known items = $12 + $15 + $6 = $33\n\nAmount spent on pizza = $50 - $33 = $17\n\nNumber of pizza boxes = $17 \u00f7 $8.50 = 2\n\n**Verification:** $12 + $15 + $6 + (2 \u00d7 $8.50) = $33 + $17 = $50 \u2713\n\nANSWER: 2",
+    "usage": {
+      "input": 132,
+      "output": 216
+    }
+  },
+  "529cdf7f62fcdd8ce77b734619a44a6249c5bdf5263dc5f85fab61dd8662061e": {
+    "model": "claude-opus-5",
+    "text": "49.50 + 67.50 + 126 = 243\n\nANSWER: 243",
+    "usage": {
+      "input": 181,
+      "output": 61
+    }
+  },
+  "d27b45ca0a57fbb1796ef0c8a372b7ac16b08fa876be137e5f16d168a4c33345": {
+    "model": "claude-haiku-4-5",
+    "text": "Let me work through this step-by-step.\n\n**Total trip distance:** 60 miles\n\n**First stop:** After 20 miles\n- Distance from start: 20 miles\n\n**Second stop:** 15 miles before the end\n- Distance from start: 60 - 15 = 45 miles\n\n**Distance between the two stops:**\n- 45 miles - 20 miles = 25 miles\n\nANSWER: 25",
+    "usage": {
+      "input": 113,
+      "output": 104
+    }
+  },
+  "523c0e4aff07592b4ecd01dc600016fe26351b073253247b7ae269a8a97259b6": {
+    "model": "claude-opus-5",
+    "text": "12 + 15 + 6 = 33; 50 \u2212 33 = 17; 17 \u00f7 8.50 = 2\n\nANSWER: 2",
+    "usage": {
+      "input": 176,
+      "output": 76
+    }
+  },
+  "2b9b20dbd60e08d28417e237190dee2babf214e807b1297a292267ee575e4f31": {
+    "model": "claude-opus-5",
+    "text": "60 \u2212 15 = 45 miles at second stop; 45 \u2212 20 = 25 miles between stops.\n\nANSWER: 25",
+    "usage": {
+      "input": 147,
+      "output": 60
+    }
+  },
+  "df30bc0dd1fccf8db1902930b5f86865b656549f3fcd2f9ca9c21c350b59193e": {
+    "model": "claude-haiku-4-5",
+    "text": "Let me work through this step-by-step.\n\nFirst, I'll find the cost of the two pairs of high heels:\n- One pair costs $33\n- The other pair costs twice as much: 2 \u00d7 $33 = $66\n- Together they cost: $33 + $66 = $99\n\nNow I'm told that the two pairs of heels together cost five dollars less than the boots.\n\nSo if the heels cost $99 and this is $5 less than the boots:\n- Boots cost = $99 + $5 = $104\n\nANSWER: 104",
+    "usage": {
+      "input": 132,
+      "output": 138
+    }
+  },
+  "8d1f1c1185f2d40e2564ddc274c4e82e8e13c8c37dc493dc86db425046e38c4f": {
+    "model": "claude-haiku-4-5",
+    "text": "Let me work through this step by step.\n\n**First friend's guess:** 80\n\n**Second friend's guess:** 20 more than half the first one\n- Half of 80 = 40\n- 40 + 20 = 60\n\n**Third friend's guess:** 25% more than the first one\n- 25% of 80 = 0.25 \u00d7 80 = 20\n- 80 + 20 = 100\n\n**Average of the three guesses:**\n(80 + 60 + 100) \u00f7 3 = 240 \u00f7 3 = 80\n\nANSWER: 80",
+    "usage": {
+      "input": 126,
+      "output": 156
+    }
+  },
+  "053fa68834632be79d871996e817173638bc94adecf9f0e1cf3b081a8ba094e8": {
+    "model": "claude-haiku-4-5",
+    "text": "Looking at this step by step:\n\n**Set up the ratio:**\n- Let Darrell's age = 7x\n- Let Allen's age = 11x\n- (since their ages are in the ratio 7:11)\n\n**Find x using their total age:**\n- 7x + 11x = 162\n- 18x = 162\n- x = 9\n\n**Calculate Allen's current age:**\n- Allen's age = 11x = 11(9) = 99\n\n**Calculate Allen's age 10 years from now:**\n- 99 + 10 = 109\n\nANSWER: 109",
+    "usage": {
+      "input": 100,
+      "output": 146
+    }
+  },
+  "5909739d181de8287a839ccd6183eaf9d113be3fa18d1ac94754783d9add89dd": {
+    "model": "claude-haiku-4-5",
+    "text": "Let me work through this step by step.\n\n**Given information:**\n- John takes care of 10 dogs\n- Each dog takes 0.5 hours per day\n- I need to find hours per week\n\n**Calculate daily hours:**\n10 dogs \u00d7 0.5 hours per dog = 5 hours per day\n\n**Calculate weekly hours:**\n5 hours per day \u00d7 7 days per week = 35 hours per week\n\nANSWER: 35",
+    "usage": {
+      "input": 105,
+      "output": 107
+    }
+  },
+  "c4b5983fbc443f97d2b1a55337a0c720d4876d322c6d96e5200e6a892c738ea7": {
+    "model": "claude-opus-5",
+    "text": "First: 80. Second: 40+20=60. Third: 80\u00d71.25=100. Sum=240, average=80.\n\nANSWER: 80",
+    "usage": {
+      "input": 155,
+      "output": 77
+    }
+  },
+  "eb7408e4143a8088e4dd39a94fbe93958e169204119d2c8f6986178e79d572d8": {
+    "model": "claude-opus-5",
+    "text": "Ratio parts: 18 parts = 162, so 1 part = 9. Allen = 11\u00d79 = 99; in 10 years, 109.\n\nANSWER: 109",
+    "usage": {
+      "input": 129,
+      "output": 84
+    }
+  },
+  "3cf27e498a00c640c17814d383fb64ab2499c2516d80fc6ac5cc7ee525ea6706": {
+    "model": "claude-opus-5",
+    "text": "5 hours a day \u00d7 7 days = 35 hours.\n\nANSWER: 35",
+    "usage": {
+      "input": 137,
+      "output": 46
+    }
+  },
+  "4b481119a4649ea388545847315cea98a20d84b22310e5afc92fd1380c0c370c": {
+    "model": "claude-opus-5",
+    "text": "Heels: 33 + 66 = 99; boots = 99 + 5 = 104.\n\nANSWER: 104",
+    "usage": {
+      "input": 180,
+      "output": 58
+    }
+  },
+  "a856fb66ccdfae4a9e72fecd635c8f30c74572acf98a78adb2fc400f5bbae071": {
+    "model": "claude-haiku-4-5",
+    "text": "Looking at this step-by-step:\n\nLet me define:\n- s = number of silver coins\n- g = number of gold coins\n\nFrom the problem, I know:\n1. g + s = 110 (total coins)\n2. g = s + 30 (30 more gold than silver)\n\nSubstituting equation 2 into equation 1:\n(s + 30) + s = 110\n2s + 30 = 110\n2s = 80\ns = 40\n\nTherefore:\ng = s + 30 = 40 + 30 = 70\n\nCheck: 70 + 40 = 110 \u2713 and 70 - 40 = 30 \u2713\n\nANSWER: 70",
+    "usage": {
+      "input": 96,
+      "output": 180
+    }
+  },
+  "cc178b1112f2e4073607e690ecc838d6accfdab56749d7d4dbf45c02ce8c88d7": {
+    "model": "claude-haiku-4-5",
+    "text": "Let me work through this step-by-step.\n\n**Given information:**\n- Raymond has 40 jewels\n- Aaron has 5 more jewels than half of Raymond's jewels\n- Siobhan has 2 fewer jewels than Aaron\n\n**Step 1: Find how many jewels Aaron has**\n- Half of Raymond's jewels = 40 \u00f7 2 = 20\n- Aaron has 5 more than that = 20 + 5 = 25 jewels\n\n**Step 2: Find how many jewels Siobhan has**\n- Siobhan has 2 fewer than Aaron = 25 - 2 = 23 jewels\n\nANSWER: 23",
+    "usage": {
+      "input": 113,
+      "output": 170
+    }
+  },
+  "ed18e936a45a538a5737e6eb2d5c4972516ba94533e3016df722594a673eb3eb": {
+    "model": "claude-opus-5",
+    "text": "Aaron: 40/2 + 5 = 25. Siobhan: 25 \u2212 2 = 23.\n\nANSWER: 23",
+    "usage": {
+      "input": 153,
+      "output": 65
+    }
+  },
+  "8e2f4f7de117d57836c0687996ce504990c28df6fcb09ff5e08c583d708a1193": {
+    "model": "claude-opus-5",
+    "text": "s + (s+30) = 110 \u2192 2s = 80 \u2192 s = 40, gold = 70.\n\nANSWER: 70",
+    "usage": {
+      "input": 124,
+      "output": 61
+    }
+  },
+  "1703dd34c09436d55ad590ec762442245ed7d79e424f2a03d73d70176fa684f7": {
+    "model": "claude-haiku-4-5",
+    "text": "Let me work through this step by step.\n\n**First 20 minutes:**\n- Mike scores 4 points\n\n**Second 20 minutes:**\n- He scores 25% more than the first 20 minutes\n- 25% of 4 = 0.25 \u00d7 4 = 1\n- So he scores 4 + 1 = 5 points\n\n**Total points:**\n- 4 + 5 = 9 points\n\nANSWER: 9",
+    "usage": {
+      "input": 116,
+      "output": 115
+    }
+  },
+  "997da40638e48a96ef75c884aa00ea359f143c1f5e1f8bb0d84e63ae567bbdd9": {
+    "model": "claude-haiku-4-5",
+    "text": "I need to find how much Terry spends on yogurt over 30 days.\n\n**Step 1: Find how many yogurts Terry needs**\n- Terry eats 2 yogurts per day\n- Over 30 days: 2 \u00d7 30 = 60 yogurts\n\n**Step 2: Find the price per yogurt**\n- 4 yogurts cost $5.00\n- Price per yogurt: $5.00 \u00f7 4 = $1.25 per yogurt\n\n**Step 3: Calculate total cost**\n- 60 yogurts \u00d7 $1.25 per yogurt = $75.00\n\nANSWER: 75",
+    "usage": {
+      "input": 109,
+      "output": 163
+    }
+  },
+  "a1dd49166d92e1fbf656b7f139b1ae553da23e2b35e4d9d835959afb8ae1a1fb": {
+    "model": "claude-opus-5",
+    "text": "First 20 min: 4 points. Second: 4 \u00d7 1.25 = 5 points. Total = 9.\n\nANSWER: 9",
+    "usage": {
+      "input": 147,
+      "output": 57
+    }
+  },
+  "0de76998fbf875a87a9e91f136175c37bc4312dd46007ff57ddee2fdd6aadc3b": {
+    "model": "claude-opus-5",
+    "text": "60 yogurts, 15 packs of 4, \u00d7$5 = $75.\n\nANSWER: 75",
+    "usage": {
+      "input": 137,
+      "output": 64
+    }
+  },
+  "5840f750d5c465db7a2b127d73a68eff205eccaa006c08b499bbb6a8021235a5": {
+    "model": "claude-haiku-4-5",
+    "text": "Looking at this step-by-step:\n\n**Total running hours per week:**\n- Day 1: 3 hours\n- Day 2: 3 \u00f7 2 = 1.5 hours\n- Day 3: 3 \u00f7 2 = 1.5 hours\n- Total: 3 + 1.5 + 1.5 = 6 hours\n\n**Speed calculation:**\n- Distance per week: 60 miles\n- Time per week: 6 hours\n- Speed = Distance \u00f7 Time = 60 \u00f7 6 = 10 miles per hour\n\nANSWER: 10",
+    "usage": {
+      "input": 109,
+      "output": 159
+    }
+  },
+  "0fefe1c0f5f25e4ebcb59d98904ce57692132ff6a48f23b9792bdbb4c6489239": {
+    "model": "claude-opus-5",
+    "text": "He got 8\u00d7$20 + $5 = $165, so he sold 165/15 = 11 sets, leaving 13 \u2212 11 = 2.\n\nANSWER: 2",
+    "usage": {
+      "input": 156,
+      "output": 88
+    }
+  },
+  "5eab6f4d18ce2b982b02754159f462e6db55e254f1355bb9c4bd1531e4f7e758": {
+    "model": "claude-opus-5",
+    "text": "3 hours + 1.5 + 1.5 = 6 hours; 60/6 = 10 mph.\n\nANSWER: 10",
+    "usage": {
+      "input": 135,
+      "output": 84
+    }
+  },
+  "2ccc864e1ec65ffb148e0f3e1a8ecebd71a72052dc2ed4a95524d52331599bc1": {
+    "model": "claude-haiku-4-5",
+    "text": "Let me work through this step-by-step.\n\n**Money from selling lego sets:**\n- 13 lego sets \u00d7 $15 each = $195\n\n**Money spent on video games:**\n- 8 video games \u00d7 $20 each = $160\n\n**Money left:**\n- $195 - $160 = $35\n\nThe problem states he has $5 left, which matches our calculation ($35 isn't matching... let me reconsider).\n\nWait, re-reading: \"He ends up buying 8 video games for $20 each and has $5 left.\"\n\nThis means: Money from selling - Money spent = Money left\n$195 - $160 = $35, but the problem says $5 is left.\n\nThis suggests the problem setup has an inconsistency, BUT the actual question asks: \"How many lego sets does he still have?\"\n\nSince the problem explicitly states \"John plans to sell **all** his toys,\" and he sells lego sets to buy video games, he has sold all of them.\n\n**Number of lego sets still remaining = 0**\n\nANSWER: 0",
+    "usage": {
+      "input": 128,
+      "output": 254
+    }
+  },
+  "59ad549c1c835ed0a1c19a6043e8b023f3ede8d7c75bf37cb1547d2c29ac0c83": {
+    "model": "claude-haiku-4-5",
+    "text": "Let me work through this step-by-step.\n\n**Given information:**\n- Suzy's iPhone is 1 year old\n- Ben's iPhone is two times older than Suzy's iPhone\n- Brandon's iPhone is four times as old as Ben's iPhone\n\n**Step 1:** Find Ben's iPhone age\nBen's iPhone = 2 \u00d7 Suzy's iPhone\nBen's iPhone = 2 \u00d7 1 = 2 years old\n\n**Step 2:** Find Brandon's iPhone age\nBrandon's iPhone = 4 \u00d7 Ben's iPhone\nBrandon's iPhone = 4 \u00d7 2 = 8 years old\n\nANSWER: 8",
+    "usage": {
+      "input": 110,
+      "output": 151
+    }
+  },
+  "67c740ac2610fe98ba53370a8e53f438ac370d21a807ce0aca2550f8bfcce238": {
+    "model": "claude-haiku-4-5",
+    "text": "Looking at this step-by-step:\n\n**Find Dana's walking speed:**\n- Skip speed = 3 mph\n- Skip speed = \u00bd \u00d7 run speed\n- 3 = \u00bd \u00d7 run speed\n- Run speed = 6 mph\n\n**Find Dana's running speed from walking:**\n- Run speed = 4 \u00d7 walk speed\n- 6 = 4 \u00d7 walk speed\n- Walk speed = 1.5 mph\n\n**Calculate distance traveled in 6 hours:**\n- Running time: 1/3 \u00d7 6 = 2 hours\n- Walking time: 2/3 \u00d7 6 = 4 hours\n\n- Distance running: 2 hours \u00d7 6 mph = 12 miles\n- Distance walking: 4 hours \u00d7 1.5 mph = 6 miles\n\n- Total distance: 12 + 6 = 18 miles\n\nANSWER: 18",
+    "usage": {
+      "input": 139,
+      "output": 217
+    }
+  },
+  "794000d87d7ddab291795baa53f6ecf2ebddf8bb75e40c91b63187c283abd4a7": {
+    "model": "claude-opus-5",
+    "text": "Ben's is 2 years, Brandon's is 4\u00d72 = 8.\n\nANSWER: 8",
+    "usage": {
+      "input": 161,
+      "output": 51
+    }
+  },
+  "491edc3b31694dd1cd5a72416328d4a70c80f937d3e841efde7bb5b725bad641": {
+    "model": "claude-opus-5",
+    "text": "Skip 3 \u2192 run 6 \u2192 walk 1.5 mph. Running 2 h = 12 mi; walking 4 h = 6 mi; total 18.\n\nANSWER: 18",
+    "usage": {
+      "input": 177,
+      "output": 107
+    }
+  },
+  "eb409f77ec6a668b7636125faee133b90ee31d4ab294b74a3670a01eb63ddfcf": {
+    "model": "claude-haiku-4-5",
+    "text": "Let me work through this step-by-step.\n\n**Initial setup:**\n- 5 pies, each cut into 8 pieces\n- Total pieces = 5 \u00d7 8 = 40 pieces\n\n**At the end of the evening:**\n- 14 pieces remained\n\n**Pieces taken by guests:**\n- Pieces taken = Total pieces - Remaining pieces\n- Pieces taken = 40 - 14 = 26 pieces\n\nANSWER: 26",
+    "usage": {
+      "input": 153,
+      "output": 111
+    }
+  },
+  "030a6e614c10e5a8fed8b3064ded2d2a95626f9c936e5d03cdf97cb063d23d2b": {
+    "model": "claude-haiku-4-5",
+    "text": "Let me work through this step-by-step.\n\n**Given information:**\n- 250 calories per serving\n- 300g bag has 5 servings\n- Daily target: 2000 calories\n- Already consumed: 1800 calories\n\n**Find calories remaining:**\n2000 - 1800 = 200 calories remaining\n\n**Find grams per serving:**\n300g \u00f7 5 servings = 60g per serving\n\n**Find servings you can eat:**\n200 calories \u00f7 250 calories per serving = 0.8 servings\n\n**Find grams you can eat:**\n0.8 servings \u00d7 60g per serving = 48g\n\nANSWER: 48",
+    "usage": {
+      "input": 124,
+      "output": 169
+    }
+  },
+  "614291edb980f4642578b66ee911f37afe06717253750630a9e668a5d56b2648": {
+    "model": "claude-opus-5",
+    "text": "1200 \u2212 1000 = 200 feet.\n\nANSWER: 200",
+    "usage": {
+      "input": 268,
+      "output": 35
+    }
+  },
+  "5494cf785eaf97ff95f76235a02beb1601bef12f6453ea95fc8eb97109894a1e": {
+    "model": "claude-opus-5",
+    "text": "40 total pieces, 14 left, so 26 taken.\n\nANSWER: 26",
+    "usage": {
+      "input": 204,
+      "output": 37
+    }
+  },
+  "5aa7fa4184217c734470f0041f18cec0b36f9a6d61c195610eb6447b0531e740": {
+    "model": "claude-haiku-4-5",
+    "text": "I need to find Charlie's net profit from making and selling 20 candles.\n\n**Step 1: Determine how much beeswax is needed for 20 candles.**\n- For every 1 pound of beeswax, he can make 10 candles\n- For 20 candles: 20 \u00f7 10 = 2 pounds of beeswax needed\n\n**Step 2: Calculate the cost of supplies.**\n- Cost per pound of beeswax and wicks: $10.00\n- Total cost for 2 pounds: 2 \u00d7 $10.00 = $20.00\n\n**Step 3: Calculate revenue from selling 20 candles.**\n- Price per candle: $2.00\n- Revenue from 20 candles: 20 \u00d7 $2.00 = $40.00\n\n**Step 4: Calculate net profit.**\n- Net profit = Revenue - Cost\n- Net profit = $40.00 - $20.00 = $20.00\n\nANSWER: 20",
+    "usage": {
+      "input": 147,
+      "output": 246
+    }
+  },
+  "ef63e04148ff97a57db82b86a520bae66752884c7106aab71411417a4988af31": {
+    "model": "claude-opus-5",
+    "text": "Remaining calories: 2000 \u2212 1800 = 200.\nEach serving = 60g (300g \u00f7 5) = 250 calories.\n200 calories \u2192 (200/250) \u00d7 60 = 48g.\n\nANSWER: 48",
+    "usage": {
+      "input": 156,
+      "output": 118
+    }
+  },
+  "8e91cb6e31c0acada3c85a105ebf4ed60139aae2fb1fa656116efab61e05d8b7": {
+    "model": "claude-haiku-4-5",
+    "text": "I need to find how far outside the dragon's flame reach Polly can stand while still hitting it with the javelin when holding the sapphire gemstone.\n\n**Given information:**\n- Dragon's flame reach: 1000 feet\n- Javelin throw distance without gemstone: 400 feet\n- With gemstone: throws 3 times farther than without\n\n**Step 1: Find throwing distance with gemstone**\nWith the gemstone, Polly can throw 3 times farther:\n- Distance with gemstone = 3 \u00d7 400 = 1200 feet\n\n**Step 2: Find how far outside flame reach she can stand**\nThe dragon can flame anything within 1000 feet. To be outside the dragon's flame reach AND still hit it, Polly needs to stand beyond 1000 feet distance.\n\nIf Polly stands at distance d from the dragon:\n- She's outside the flame reach when: d > 1000 feet\n- She can still hit the dragon when: d \u2264 1200 feet (her throwing distance)\n\nThe maximum distance she can stand is 1200 feet. The dragon's flame reach is 1000 feet.\n\nTherefore, she can stand **1200 - 1000 = 200 feet** outside the reach of the dragon's flames.\n\nANSWER: 200",
+    "usage": {
+      "input": 200,
+      "output": 308
+    }
+  },
+  "ec8be6da4697fa22b4359ab3cfcd31733c8213f4b43a6e288bb292f51b78434d": {
+    "model": "claude-opus-5",
+    "text": "Cost: 20 candles need 2 pounds \u2192 $20. Revenue: 20 \u00d7 $2 = $40. Profit = $20.\n\nANSWER: 20",
+    "usage": {
+      "input": 182,
+      "output": 87
+    }
+  },
+  "db6f6838794abb04816e7f8f305f9335403806f49e215e041b7d5794402f88b2": {
+    "model": "claude-haiku-4-5",
+    "text": "Let me work through this step by step.\n\n**Monday:**\n- Articles written: 5\n\n**Tuesday:**\n- She wrote 2/5 times more articles than Monday\n- 2/5 times more means: 5 + (2/5 \u00d7 5) = 5 + 2 = 7 articles\n\n**Wednesday:**\n- She wrote twice the number of articles as Tuesday\n- 2 \u00d7 7 = 14 articles\n\n**Total articles for the three days:**\n- 5 + 7 + 14 = 26 articles\n\n**Total hours spent:**\n- Each article takes 4 hours\n- 26 articles \u00d7 4 hours = 104 hours\n\nANSWER: 104",
+    "usage": {
+      "input": 162,
+      "output": 171
+    }
+  },
+  "c7fa86de1d40b7a41ae4a61ee80c5d8472da439adfe3051ddc6d9043ec2a3072": {
+    "model": "claude-haiku-4-5",
+    "text": "Let me work through this step-by-step.\n\n**Starting amount:** 80 post-it notes\n\n**Amount purchased:** x post-it notes (unknown)\n\n**Amount used:** 220 post-it notes (one per cup of coffee)\n\n**Amount remaining:** 23 post-it notes\n\n**Setting up the equation:**\nStarting amount + Purchased amount - Used amount = Remaining amount\n\n80 + x - 220 = 23\n\n**Solving for x:**\nx - 140 = 23\nx = 163\n\n**Verification:**\n80 + 163 - 220 = 243 - 220 = 23 \u2713\n\nANSWER: 163",
+    "usage": {
+      "input": 162,
+      "output": 161
+    }
+  },
+  "825903b20c84ecdc9719bcc98afed10e0597df5a2794c66f5ea39e62c8a3a27c": {
+    "model": "claude-opus-5",
+    "text": "220 + 23 = 243 used/remaining total; minus 80 original = 163.\n\nANSWER: 163",
+    "usage": {
+      "input": 205,
+      "output": 47
+    }
+  },
+  "4a98e21d5df3bc4eb19d188fa44ae5bc03c9206b3fb3778de6d8480cf681ae4c": {
+    "model": "claude-haiku-4-5",
+    "text": "I need to find how many 6-inch pieces can be cut from a 4-foot wire.\n\nFirst, let me convert everything to the same unit. I'll convert 4 feet to inches:\n- 4 feet = 4 \u00d7 12 inches = 48 inches\n\nNow I need to divide the total length by the length of each piece:\n- Number of pieces = 48 inches \u00f7 6 inches = 8 pieces\n\nANSWER: 8",
+    "usage": {
+      "input": 102,
+      "output": 112
+    }
+  },
+  "5262b8f994d0eebd79373825536fdecf4d5802a96b6cb197097080f761333cfd": {
+    "model": "claude-haiku-4-5",
+    "text": "Let me work through this step-by-step.\n\n**Total units in the building:**\n- 15 floors \u00d7 8 units per floor = 120 units\n\n**Occupied units:**\n- 3/4 of 120 = 3/4 \u00d7 120 = 90 units\n\n**Unoccupied units:**\n- 120 - 90 = 30 units\n\nANSWER: 30",
+    "usage": {
+      "input": 110,
+      "output": 101
+    }
+  },
+  "7f23ba595f419a38ba00c13f0e3dead4b366b44162110c761ea83cf038c0fcac": {
+    "model": "claude-haiku-4-5",
+    "text": "Let me work through this step-by-step.\n\n**Blue ties:**\n- Cost per blue tie: $40\n- Total spent on blue ties: $200\n- Number of blue ties: $200 \u00f7 $40 = 5 blue ties\n\n**Red ties:**\n- John buys twice as many red ties as blue ties: 2 \u00d7 5 = 10 red ties\n- Red ties cost 50% more than blue ties: $40 \u00d7 1.5 = $60 per red tie\n- Total spent on red ties: 10 \u00d7 $60 = $600\n\n**Total spent on ties:**\n$200 + $600 = $800\n\nANSWER: 800",
+    "usage": {
+      "input": 112,
+      "output": 164
+    }
+  },
+  "17944c103da8c2bac2489b3204678140c5c94d52fbad90aaf8c37b3c31a972e9": {
+    "model": "claude-opus-5",
+    "text": "48 inches \u00f7 6 = 8 pieces.\n\nANSWER: 8",
+    "usage": {
+      "input": 139,
+      "output": 50
+    }
+  },
+  "5917b96b99c05b1bf9a6f49e30fd76fd03e152898e4f89806211adc7904fb29a": {
+    "model": "claude-opus-5",
+    "text": "Monday: 5 articles. Tuesday: 5 + (2/5)(5) = 7. Wednesday: 14. Total 26 articles \u00d7 4 hours = 104 hours.\n\nANSWER: 104",
+    "usage": {
+      "input": 226,
+      "output": 111
+    }
+  },
+  "757ae3c0fdfc63c74e3bdcd233da383d2dca5e490777cf8945ffb79b74c3772b": {
+    "model": "claude-haiku-4-5",
+    "text": "Let me work through this step-by-step.\n\n**Daily egg production:** 252 eggs per day\n\n**Convert eggs to dozens:**\n252 \u00f7 12 = 21 dozen per day\n\n**Daily earnings:**\n21 dozen \u00d7 $2 per dozen = $42 per day\n\n**Weekly earnings:**\n$42 per day \u00d7 7 days = $294 per week\n\nANSWER: 294",
+    "usage": {
+      "input": 100,
+      "output": 99
+    }
+  },
+  "3287d00cea14a0d1de9b64147c9c529b8cdbad309757ded663c64ab62b003238": {
+    "model": "claude-opus-5",
+    "text": "15 floors \u00d7 8 units = 120 units; 3/4 occupied = 90; unoccupied = 30.\n\nANSWER: 30",
+    "usage": {
+      "input": 141,
+      "output": 69
+    }
+  },
+  "cadeb56383ba89aac9955d2baf29201dd1537a280ea3d34ed0d6f7478f4d8206": {
+    "model": "claude-haiku-4-5",
+    "text": "I need to find how long it takes Tom to travel back.\n\nFirst, let me figure out how far Tom travels going out.\n- He travels from 1 to 4 PM, which is 3 hours\n- At 10 mph, he covers: 3 hours \u00d7 10 mph = 30 miles\n\nNow he needs to travel back the same 30 miles.\n- He travels at 6 mph on the return trip\n- Time = Distance \u00f7 Speed = 30 miles \u00f7 6 mph = 5 hours\n\nANSWER: 5",
+    "usage": {
+      "input": 115,
+      "output": 136
+    }
+  },
+  "536bce872560932b496667be8e04732df3bdb806ac034ccbcf87b6b5cd90b967": {
+    "model": "claude-opus-5",
+    "text": "252 eggs = 21 dozen per day \u2192 21 \u00d7 $2 = $42/day \u2192 $42 \u00d7 7 = $294.\n\nANSWER: 294",
+    "usage": {
+      "input": 138,
+      "output": 73
+    }
+  },
+  "2369a1a84387e084c4a50d007917e308b7dcff4a5c63dd818480c23b6f9fcd1b": {
+    "model": "claude-opus-5",
+    "text": "30 comic books = 7.5 pounds; remaining 7.5 pounds \u00f7 0.5 = 15 toys.\n\nANSWER: 15",
+    "usage": {
+      "input": 168,
+      "output": 80
+    }
+  },
+  "15b92ccec3f46a7419ef85cb313715895ddb686201f2d78a9e8c9bdfe55586aa": {
+    "model": "claude-haiku-4-5",
+    "text": "Let me calculate the revenue for each day.\n\n**Thursday:**\n- Truck tires: 6 \u00d7 $60 = $360\n- Car tires: 4 \u00d7 $40 = $160\n- Total Thursday: $360 + $160 = $520\n\n**Friday:**\n- Truck tires: 0 \u00d7 $60 = $0\n- Car tires: 12 \u00d7 $40 = $480\n- Total Friday: $0 + $480 = $480\n\n**Difference:**\nThursday had higher revenue at $520.\nDifference: $520 - $480 = $40\n\nANSWER: 40",
+    "usage": {
+      "input": 176,
+      "output": 150
+    }
+  },
+  "7a1247f9dc40cb15059ac5f34e062850ce4e79614e58dc87046903b317a553eb": {
+    "model": "claude-haiku-4-5",
+    "text": "I need to find how many toys Uriah needs to remove to lose a total of 15 pounds.\n\n**Step 1: Find the weight of 30 comic books.**\n- Each comic book weighs 1/4 pound\n- 30 comic books weigh: 30 \u00d7 1/4 = 30/4 = 7.5 pounds\n\n**Step 2: Find how much more weight needs to be removed.**\n- Total weight to remove: 15 pounds\n- Weight already removed (comic books): 7.5 pounds\n- Remaining weight to remove: 15 - 7.5 = 7.5 pounds\n\n**Step 3: Find how many toys weigh 7.5 pounds.**\n- Each toy weighs 1/2 pound\n- Number of toys needed: 7.5 \u00f7 1/2 = 7.5 \u00d7 2 = 15 toys\n\nANSWER: 15",
+    "usage": {
+      "input": 130,
+      "output": 226
+    }
+  },
+  "ef4aa0d0ef9e5fa8acad574a19f96991b9a179483dd7345e50bf62094a5a6f63": {
+    "model": "claude-haiku-4-5",
+    "text": "Let me work through this step-by-step.\n\n**What we know:**\n- They're driving home with 7 adopted kittens\n- Patchy (house cat) has had 3 times the number of adopted kittens\n- Trixie (house cat) has had 12 kittens\n\n**Calculations:**\n- Adopted kittens: 7\n- Patchy's kittens: 3 \u00d7 7 = 21\n- Trixie's kittens: 12\n\n**Total kittens:**\n7 + 21 + 12 = 40\n\nANSWER: 40",
+    "usage": {
+      "input": 157,
+      "output": 149
+    }
+  },
+  "9901c285b880456232b61e7457b6bbaa45f24252f3db40b28f6bf062c7379df2": {
+    "model": "claude-opus-5",
+    "text": "Thursday: 6\u00d760 + 4\u00d740 = 360 + 160 = 520. Friday: 12\u00d740 = 480. Difference: 40.\n\nANSWER: 40",
+    "usage": {
+      "input": 241,
+      "output": 85
+    }
+  },
+  "c44bd03a4ee91103a7f7860e59d98719e06fcd731f4ddf27e0c937fccf2ba2b9": {
+    "model": "claude-haiku-4-5",
+    "text": "Looking at this step-by-step:\n\n1. Jean starts with 30 lollipops\n2. Jean eats 2 lollipops: 30 - 2 = 28 lollipops remaining\n3. Each bag holds 2 lollipops\n4. Number of bags: 28 \u00f7 2 = 14 bags\n\nANSWER: 14",
+    "usage": {
+      "input": 116,
+      "output": 96
+    }
+  },
+  "cbd3c0f67751300f9330929959b67c4a1413c646022b15cac3b3a6ca6162f12c": {
+    "model": "claude-opus-5",
+    "text": "28 lollipops remain; 28 \u00f7 2 = 14 bags.\n\nANSWER: 14",
+    "usage": {
+      "input": 149,
+      "output": 44
+    }
+  },
+  "28cdc813b96a4abef37fe23a0b9125a7d7cc4c32e4886216103886f43c1a33f5": {
+    "model": "claude-opus-5",
+    "text": "7 adopted + Patchy's 21 + Trixie's 12 = 40.\n\nANSWER: 40",
+    "usage": {
+      "input": 198,
+      "output": 54
+    }
+  },
+  "ea9c0179a8d66f4b61ee17e2c7635bdc5d2b75e6aaae896c3028cb63df3060bb": {
+    "model": "claude-haiku-4-5",
+    "text": "Looking at this step-by-step:\n\n**Cost per movie visit:**\n- Ticket: $7\n- Popcorn: $7\n- Total per visit: $7 + $7 = $14\n\n**Number of times he can go:**\n- Money available: $42\n- Cost per visit: $14\n- Number of visits: $42 \u00f7 $14 = 3\n\nPeter can go to the movies 3 times.\n\nANSWER: 3",
+    "usage": {
+      "input": 111,
+      "output": 112
+    }
+  },
+  "f68ee9aea0736e15924bad79395f5bde90f4c7b75b3dbaa9341664f970318c85": {
+    "model": "claude-opus-5",
+    "text": "Blue ties: $200/$40 = 5 ties. Red ties: 10 ties at $60 each = $600. Total = $800.\n\nANSWER: 800",
+    "usage": {
+      "input": 145,
+      "output": 92
+    }
+  },
+  "3c58dd4a1a33f856ec3cec4a2bfe193681399026d37bfb7fe5b13d2b11fd8366": {
+    "model": "claude-haiku-4-5",
+    "text": "Looking at this problem, I need to:\n\n1. Calculate the raspberries in clusters:\n   - 6 clusters \u00d7 20 fruit per cluster = 120 fruit\n\n2. Add the scattered individual fruit:\n   - 120 + 67 = 187 fruit\n\nANSWER: 187",
+    "usage": {
+      "input": 97,
+      "output": 72
+    }
+  },
+  "c03f92d58fab429430b706f197c6a9557f43e61f206324d9243d141bd24707e2": {
+    "model": "claude-opus-5",
+    "text": "Each trip costs $7 + $7 = $14. $42 \u00f7 $14 = 3 times.\n\nANSWER: 3",
+    "usage": {
+      "input": 141,
+      "output": 51
+    }
+  },
+  "b3c9e56fce651177ace6d7a6025e76a14ef3c00fb7b38729ea46b700abefcb71": {
+    "model": "claude-haiku-4-5",
+    "text": "I need to find the final price Stephen paid after all the extra fees and tip.\n\nStarting with the grocery bill: $40.00\n\nNow I'll add each fee:\n1. 25% fee on the $40.00 bill:\n   25% of $40.00 = 0.25 \u00d7 $40.00 = $10.00\n\n2. Delivery fee: $3.00\n\n3. Tip: $4.00\n\nTotal final price:\n$40.00 + $10.00 + $3.00 + $4.00 = $57.00\n\nANSWER: 57",
+    "usage": {
+      "input": 146,
+      "output": 143
+    }
+  },
+  "00dfcff44720d35b6226422f575601e128c9853232c8c67491f06cdce6992801": {
+    "model": "claude-haiku-4-5",
+    "text": "I need to find the maximum number of boxes that can be loaded onto the truck without exceeding 5000 pounds.\n\nGiven information:\n- Bridge weight limit: 5000 pounds\n- Weight of driver + empty truck: 3755 pounds\n- Weight per box: 15 pounds\n\nLet me set up the equation where n = number of boxes:\nWeight of driver + truck + boxes \u2264 5000\n3755 + 15n \u2264 5000\n\nSolving for n:\n15n \u2264 5000 - 3755\n15n \u2264 1245\nn \u2264 1245 \u00f7 15\nn \u2264 83\n\nLet me verify: \n- Weight with 83 boxes: 3755 + (15 \u00d7 83) = 3755 + 1245 = 5000 \u2713\n- Weight with 84 boxes: 3755 + (15 \u00d7 84) = 3755 + 1260 = 5015 (exceeds limit) \u2717\n\nThe maximum number of boxes is 83.\n\nANSWER: 83",
+    "usage": {
+      "input": 140,
+      "output": 271
+    }
+  },
+  "fdadb79160ea8f7d25f66a5764ea51e9fe9ea079cc9512138537ffd5f3f3ee54": {
+    "model": "claude-opus-5",
+    "text": "40 \u00d7 25% = $10 fee \u2192 40 + 10 = 50; plus $3 delivery = 53; plus $4 tip = 57.\n\nANSWER: 57",
+    "usage": {
+      "input": 192,
+      "output": 75
+    }
+  },
+  "22fb6d751407d93a016f7f92774b589445ef49071a0584e51a36a935432d052b": {
+    "model": "claude-haiku-4-5",
+    "text": "I need to find how many oranges are good by accounting for all the other categories.\n\nLet me categorize the 25 oranges:\n- Bad oranges: 1\n- Unripe oranges: 20% of 25 = 0.20 \u00d7 25 = 5\n- Sour oranges: 2\n- Good oranges: the rest\n\nTotal accounted for (non-good): 1 + 5 + 2 = 8\n\nGood oranges: 25 - 8 = 17\n\nANSWER: 17",
+    "usage": {
+      "input": 106,
+      "output": 133
+    }
+  },
+  "cac6e6e22c66591b938a804ecb12d3df60e21a329be9314062004ff1807e66cc": {
+    "model": "claude-opus-5",
+    "text": "6\u00d720=120; 120+67=187\n\nANSWER: 187",
+    "usage": {
+      "input": 131,
+      "output": 34
+    }
+  },
+  "f0b22254a644f43ac66eabfafeee67dc557e8918c1316de15dca1118ea7c527b": {
+    "model": "claude-opus-5",
+    "text": "1245/15 = 83 boxes.\n\nANSWER: 83",
+    "usage": {
+      "input": 200,
+      "output": 40
+    }
+  },
+  "6752fe8b48bde80a919de5dfaa4728e1ab36bb9bc082a2a5f6419f5cd5a1b511": {
+    "model": "claude-opus-5",
+    "text": "3 hours at 10 mph = 30 miles; return at 6 mph takes 30/6 = 5 hours.\n\nANSWER: 5",
+    "usage": {
+      "input": 146,
+      "output": 75
+    }
+  },
+  "09f67c7da3a1ff5293bca48bc8c2bf65fdf5e4df42c9f203272d432ebcd89be0": {
+    "model": "claude-opus-5",
+    "text": "Bad: 1, unripe: 5, sour: 2 \u2192 8 not good; 25 \u2212 8 = 17.\n\nANSWER: 17",
+    "usage": {
+      "input": 131,
+      "output": 78
+    }
+  },
+  "7b93b23f3be408b5d96591120b7704a8b9e5d61a79ef24d9e228c8a3b46c5330": {
+    "model": "claude-haiku-4-5",
+    "text": "Let me work through this step-by-step.\n\n**Cost of materials:** $500\n**Cost of jeweler:** $800\n\n**Subtotal so far:** $500 + $800 = $1,300\n\n**Insurance cost:** 10% of the subtotal = 0.10 \u00d7 $1,300 = $130\n\n**Total amount paid:** $1,300 + $130 = $1,430\n\nANSWER: 1430",
+    "usage": {
+      "input": 123,
+      "output": 105
+    }
+  },
+  "e82c78bae8866b32f38b1f694a51e9cfdbb38bc5e3c5cd203197246e388d9b67": {
+    "model": "claude-opus-5",
+    "text": "Material + labor = $1300; insurance = 10% of $1300 = $130; total = $1430.\n\nANSWER: 1430",
+    "usage": {
+      "input": 153,
+      "output": 73
+    }
+  },
+  "32ee3ec686a82fee760ccd0d855602c77fe93f08cf82f068e0ba6a858940caa6": {
+    "model": "claude-haiku-4-5",
+    "text": "Let me work through this step-by-step.\n\n**Given information:**\n- Sophia drove 100 miles since last filling up\n- She needed 4 gallons to fill up the tank again\n- Her tank holds 12 gallons total\n\n**Finding the fuel efficiency:**\nIf she drove 100 miles and used 4 gallons, her car gets:\n100 miles \u00f7 4 gallons = 25 miles per gallon\n\n**Finding the range on a full tank:**\nWith a 12-gallon tank and 25 miles per gallon:\n12 gallons \u00d7 25 miles per gallon = 300 miles\n\nANSWER: 300",
+    "usage": {
+      "input": 159,
+      "output": 158
+    }
+  },
+  "d87e91a8eb79899b99c18e13e8a381422e026c172428c1a70bdb2379d8108acd": {
+    "model": "claude-opus-5",
+    "text": "First half: 140\u00d76 = 840. Second half: 140\u221214 = 126 per month, \u00d76 = 756. Total = 1596.\n\nANSWER: 1596",
+    "usage": {
+      "input": 169,
+      "output": 75
+    }
+  },
+  "5e29a2c3a0c92740d83f69e602e84d97af82b0abc0230033ab7438e0cd3f11ec": {
+    "model": "claude-haiku-4-5",
+    "text": "I need to find Marcy's annual pension if she quits after 30 years.\n\nLet me break down the problem:\n- Full pension after 40 years: $50,000/year\n- After 20 years, she becomes entitled to 5% of the pension value per year worked\n- She quits after 30 years\n\nSo she worked for 30 years total.\n\nThe vesting schedule starts at 20 years:\n- Years 1-20: No pension vesting mentioned\n- Years 21-30: She vests 5% per year\n\nFrom year 21 to year 30, that's 10 years of vesting at 5% per year.\n\nVested amount = 10 years \u00d7 5% = 50% of the full pension\n\nAnnual pension = 50% \u00d7 $50,000 = $25,000\n\nANSWER: 25000",
+    "usage": {
+      "input": 131,
+      "output": 205
+    }
+  },
+  "aade6f86e35ae27950397aee80cb3a40ee9e808ee53e7983c68373ea2dfd1c4b": {
+    "model": "claude-opus-5",
+    "text": "She earns 5% per year beyond 20 years; 30 \u2212 20 = 10 years \u2192 50% of $50,000 = $25,000.\n\nANSWER: 25000",
+    "usage": {
+      "input": 163,
+      "output": 92
+    }
+  },
+  "67e367355399a6978289877cd3843466a6692c88f2e18ac04b8969384b0c71c7": {
+    "model": "claude-opus-5",
+    "text": "100 miles / 4 gallons = 25 mpg; 25 \u00d7 12 = 300 miles.\n\nANSWER: 300",
+    "usage": {
+      "input": 208,
+      "output": 56
+    }
+  },
+  "f760ed94160cb811da9924c8fe584df98472c7612af2e535bf75e7f8e67d28f1": {
+    "model": "claude-haiku-4-5",
+    "text": "I need to find the total amount Aleena paid for the streaming service over a full year.\n\n**Given information:**\n- Monthly charge: $140\n- First half of year (6 months): charged $140 per month\n- Second half of year (6 months): charged 10% less per month\n\n**First half of the year (6 months):**\n- Monthly charge: $140\n- Total for 6 months: 6 \u00d7 $140 = $840\n\n**Second half of the year (6 months):**\n- 10% less than $140 means: $140 \u00d7 (1 - 0.10) = $140 \u00d7 0.90 = $126 per month\n- Total for 6 months: 6 \u00d7 $126 = $756\n\n**Total amount paid for the year:**\n$840 + $756 = $1,596\n\nANSWER: 1596",
+    "usage": {
+      "input": 132,
+      "output": 211
+    }
+  },
+  "f17356d4291976490e95e34a569ebb16a466c5b8de4d3f605446d94ff1ff5ce6": {
+    "model": "claude-haiku-4-5",
+    "text": "Let me break this down step by step.\n\n**Per day Jim does this:**\n- Watches TV: 2 hours\n- Reads: half as long as TV = 2 \u00f7 2 = 1 hour\n- Total per activity session: 2 + 1 = 3 hours\n\n**Per week:**\n- He does this 3 times a week\n- Total per week: 3 hours \u00d7 3 = 9 hours\n\n**In 4 weeks:**\n- Total: 9 hours \u00d7 4 = 36 hours\n\nANSWER: 36",
+    "usage": {
+      "input": 114,
+      "output": 141
+    }
+  },
+  "4780753c8f74bf017ec286e47240fad9a9c0e433b18d2ba65a9ae92a38d99150": {
+    "model": "claude-haiku-4-5",
+    "text": "Let me break down this problem step by step.\n\n**Given information:**\n- 4 schools competing\n- Each school sends:\n  - 1 girls' basketball team with 5 players\n  - 1 boys' basketball team with 5 players\n  - 1 coach for the girls' team\n  - 1 coach for the boys' team\n\n**Calculate people per school:**\n- Girls' team players: 5\n- Boys' team players: 5\n- Girls' team coach: 1\n- Boys' team coach: 1\n- Total per school: 5 + 5 + 1 + 1 = 12 people\n\n**Calculate total for all schools:**\n- 4 schools \u00d7 12 people per school = 48 people\n\nANSWER: 48",
+    "usage": {
+      "input": 122,
+      "output": 186
+    }
+  },
+  "16c3e94761df6c1e045b19d0ef4ef1eaf52ede1a488b6a184f9cc72cd49d375f": {
+    "model": "claude-haiku-4-5",
+    "text": "Let me work through this step-by-step.\n\n**Diamonds:** 175\n\n**Rubies:** 35 fewer than diamonds\n- Rubies = 175 - 35 = 140\n\n**Emeralds:** Twice the number of rubies\n- Emeralds = 2 \u00d7 140 = 280\n\n**Total gems:** 175 + 140 + 280 = 595\n\nANSWER: 595",
+    "usage": {
+      "input": 116,
+      "output": 105
+    }
+  },
+  "a91044ac50877152c925e1f8889b946c1bc5de6506c115245e8de9f4ded946b8": {
+    "model": "claude-opus-5",
+    "text": "Jim watches 2 hours of TV and reads 1 hour = 3 hours each time. Three times a week = 9 hours, over 4 weeks = 36 hours.\n\nANSWER: 36",
+    "usage": {
+      "input": 147,
+      "output": 96
+    }
+  },
+  "5d3330c1ed220e5db3c9fe7811884f46da21dfd69c3f9496a7b64c13fc19aeaa": {
+    "model": "claude-opus-5",
+    "text": "Girls 60, boys 120, total 180 students; 180/5 = 36 teachers.\n\nANSWER: 36",
+    "usage": {
+      "input": 132,
+      "output": 60
+    }
+  },
+  "9e91dcbaa3474ce9c03ef5307eb29c913f57a669e1b60fd121993eb70a5479a1": {
+    "model": "claude-haiku-4-5",
+    "text": "Let me work through this step-by-step.\n\n**Given information:**\n- There are twice as many boys as girls\n- There are 60 girls\n- There are 5 students to every teacher\n\n**Find the number of boys:**\n- Boys = 2 \u00d7 girls = 2 \u00d7 60 = 120 boys\n\n**Find the total number of students:**\n- Total students = girls + boys = 60 + 120 = 180 students\n\n**Find the number of teachers:**\n- If there are 5 students per teacher: 180 \u00f7 5 = 36 teachers\n\nANSWER: 36",
+    "usage": {
+      "input": 102,
+      "output": 149
+    }
+  },
+  "fbdbda0be6b631ba140d57205217d20df3ed9e8ce11aaa08e763c14a14a2929d": {
+    "model": "claude-opus-5",
+    "text": "Each school: 5+5=10 players, plus 2 coaches = 12 people. Four schools: 12\u00d74 = 48.\n\nANSWER: 48",
+    "usage": {
+      "input": 162,
+      "output": 81
+    }
+  },
+  "c2d99226458d1676c0619852096aa6fc2c14d57eed5593150b99cf1319bc7adc": {
+    "model": "claude-opus-5",
+    "text": "5\u00d78 = 40; 100 \u2212 40 = 60.\n\nANSWER: 60",
+    "usage": {
+      "input": 153,
+      "output": 37
+    }
+  },
+  "b51fdb5572e163ce72783a72ace5fd720f65cd4ff810395eaaf7eb0d23f6db10": {
+    "model": "claude-haiku-4-5",
+    "text": "Looking at this problem, I need to find how much money Bailey started with.\n\nLet me set up the equation:\n- Starting amount: unknown (let's call it x)\n- Weekly allowance: $5 per week for 8 weeks\n- Total allowance received: $5 \u00d7 8 = $40\n- Final amount: $100\n\nSo: Starting amount + Total allowance = Final amount\nx + 40 = 100\nx = 100 - 40\nx = 60\n\nBailey started with $60.\n\nANSWER: 60",
+    "usage": {
+      "input": 116,
+      "output": 128
+    }
+  },
+  "8acc171989ace4055a6ef86d3b9ef127a673695e0c4306797ef7df7d5bc25b9b": {
+    "model": "claude-opus-5",
+    "text": "Rubies: 175\u221235=140. Emeralds: 280. Total: 175+140+280=595.\n\nANSWER: 595",
+    "usage": {
+      "input": 159,
+      "output": 71
+    }
+  },
+  "46189cb2044aa721a7b50644b8a4f782544704caa111058d0fa06ddb406de188": {
+    "model": "claude-haiku-4-5",
+    "text": "Let me break this down step by step.\n\n**Weekdays (Monday-Friday):**\n- 5 classes per day\n- 5 weekdays\n- Total classes: 5 \u00d7 5 = 25 classes\n\n**Saturday:**\n- 8 classes\n- Total classes: 8 classes\n\n**Total classes in 1 week:**\n- 25 + 8 = 33 classes\n\n**Students and revenue:**\n- Each class has 15 students\n- Total students: 33 \u00d7 15 = 495 students\n- Charge per student: $15.00\n- Total revenue: 495 \u00d7 $15.00 = $7,425.00\n\nANSWER: 7425",
+    "usage": {
+      "input": 119,
+      "output": 169
+    }
+  },
+  "9988f9069de7659a5e5187e4ee838a80ed2be710222fa0ac87047ac7ea8efef5": {
+    "model": "claude-haiku-4-5",
+    "text": "Let me work through this step by step.\n\nFirst recipe: 20 instructions\n\nSecond recipe: twice as many as the first one\n- Second recipe = 2 \u00d7 20 = 40 instructions\n\nTotal instructions to read for both dishes:\n- Total = 20 + 40 = 60 instructions\n\nANSWER: 60",
+    "usage": {
+      "input": 109,
+      "output": 79
+    }
+  },
+  "ba3883449d4d1b5761feed556cc4db4e5726194a42993c9de617f3b1e0ea2b02": {
+    "model": "claude-opus-5",
+    "text": "5 weekday classes \u00d7 5 days = 25, plus 8 Saturday = 33 classes.\nEach class earns 15 \u00d7 $15 = $225.\n33 \u00d7 $225 = $7425.\n\nANSWER: 7425",
+    "usage": {
+      "input": 150,
+      "output": 107
+    }
+  },
+  "d09db214539d6d97f0813ef70a360e305d1bb2cffbc4d18fe1754c7c55f0febd": {
+    "model": "claude-opus-5",
+    "text": "20 + 40 = 60\n\nANSWER: 60",
+    "usage": {
+      "input": 147,
+      "output": 27
+    }
+  },
+  "3540911963a52fad26559aa3184eb97ef8123d13435dd678fe3b9caf5109aa17": {
+    "model": "claude-opus-5",
+    "text": "43\u00d73 = 129; 23\u00d74 = 92; total = 221.\n\nANSWER: 221",
+    "usage": {
+      "input": 160,
+      "output": 52
+    }
+  },
+  "0761aaaa1abf71a382aa9ac5adedfd5b111cef7b202cd1821ec74720246689c5": {
+    "model": "claude-haiku-4-5",
+    "text": "Let me work through this step-by-step.\n\n**Step 1: Calculate the total cost of the phones without interest**\n- 5 cell phones \u00d7 $150 each = $750\n\n**Step 2: Calculate the interest charged**\n- Interest = 2% of $750\n- Interest = 0.02 \u00d7 $750 = $15\n\n**Step 3: Calculate the total amount to be paid (including interest)**\n- Total = $750 + $15 = $765\n\n**Step 4: Calculate the monthly payment for 3 months**\n- Monthly payment = $765 \u00f7 3 = $255\n\nShiela will pay $255 each month for 3 months.\n\nANSWER: 255",
+    "usage": {
+      "input": 111,
+      "output": 170
+    }
+  },
+  "6a443f2a5c6c5699be7b71346884247b5a8d322594f66e64062020ab65ff47cd": {
+    "model": "claude-haiku-4-5",
+    "text": "I need to find the total money Tommy raises from selling brownies and cheesecake slices.\n\n**Brownies:**\n- Price per slice: $3\n- Number sold: 43\n- Revenue from brownies: 43 \u00d7 $3 = $129\n\n**Cheesecake:**\n- Price per slice: $4\n- Number sold: 23\n- Revenue from cheesecake: 23 \u00d7 $4 = $92\n\n**Total money raised:**\n$129 + $92 = $221\n\nANSWER: 221",
+    "usage": {
+      "input": 119,
+      "output": 127
+    }
+  },
+  "22f91e94f74232ac0bc7b34740ee7b5e05072f7dba4ff66f61204e9eb457d937": {
+    "model": "claude-haiku-4-5",
+    "text": "Let me solve this step by step.\n\nFirst, I'll round each price to the nearest dollar:\n- Marigolds: $2.74 rounds to $3\n- Petunias: $1.87 rounds to $2\n- Begonias: $2.12 rounds to $2\n\nNow I'll calculate the revenue from each type of flower:\n- Marigolds: 12 pots \u00d7 $3 = $36\n- Petunias: 9 pots \u00d7 $2 = $18\n- Begonias: 17 pots \u00d7 $2 = $34\n\nTotal revenue: $36 + $18 + $34 = $88\n\nANSWER: 88",
+    "usage": {
+      "input": 197,
+      "output": 166
+    }
+  },
+  "3e999a9a2307d640397579f8a97def48df03ec0004dce666a1f823e77f4e80b1": {
+    "model": "claude-opus-5",
+    "text": "Each phone: $150 + 2% ($3) = $153. Five phones: $765. Over 3 months: $765 \u00f7 3 = $255.\n\nANSWER: 255",
+    "usage": {
+      "input": 139,
+      "output": 92
+    }
+  },
+  "9dc4392f5d720cafadddab5b9680ab45ca4d686e619c33b539097d5daaa070c4": {
+    "model": "claude-opus-5",
+    "text": "Rounded: marigolds $3, petunias $2, begonias $2.\n12\u00d73=36, 9\u00d72=18, 17\u00d72=34 \u2192 88\n\nANSWER: 88",
+    "usage": {
+      "input": 241,
+      "output": 75
+    }
+  },
+  "19f3b42499b603cb414366b9e677b40b09ecd702d2d805aa15039c1ac61ec854": {
+    "model": "claude-opus-5",
+    "text": "Top =16, next 32, 64, 128; sum = 240; average = 60.\n\nANSWER: 60",
+    "usage": {
+      "input": 169,
+      "output": 68
+    }
+  },
+  "7e383a7d8e6f638d32a3c5b376540e9d572a582201837e413ea8668fc8a86bfa": {
+    "model": "claude-haiku-4-5",
+    "text": "I need to find how many bags of dog food Cecilia uses in the first year (365 days).\n\n**First 180 days:**\n- 1 cup per day \u00d7 180 days = 180 cups\n\n**Remaining days in the first year:**\n- 365 days - 180 days = 185 days\n- 2 cups per day \u00d7 185 days = 370 cups\n\n**Total cups needed in the first year:**\n- 180 cups + 370 cups = 550 cups\n\n**Number of bags needed:**\n- 550 cups \u00f7 110 cups per bag = 5 bags\n\nANSWER: 5",
+    "usage": {
+      "input": 156,
+      "output": 156
+    }
+  },
+  "a81e66a2a7b0b182b15eedf871a5b65d7289839ecc5f8ad00490fe7531002cf5": {
+    "model": "claude-haiku-4-5",
+    "text": "I need to find the average square footage across all 4 levels of the sandcastle.\n\nGiven information:\n- 4 levels total\n- Each level has half the square footage of the level below it\n- Top level (level 4) has 16 square feet\n\nLet me work from the top down, since each level below has twice the area of the level above:\n\n**Level 4 (top):** 16 sq ft\n**Level 3:** 16 \u00d7 2 = 32 sq ft\n**Level 2:** 32 \u00d7 2 = 64 sq ft\n**Level 1 (bottom):** 64 \u00d7 2 = 128 sq ft\n\n**Total square footage:** 16 + 32 + 64 + 128 = 240 sq ft\n\n**Average square footage per level:** 240 \u00f7 4 = 60 sq ft\n\nANSWER: 60",
+    "usage": {
+      "input": 130,
+      "output": 217
+    }
+  },
+  "7a4b3e0c361ad83d952dc539303533b044d74604deacc53824c464ffdbec5b1e": {
+    "model": "claude-haiku-4-5",
+    "text": "Let me work through this step-by-step.\n\n**Given information:**\n- Sarah does 400 pounds of laundry\n- Raymond does half as much laundry as Sarah\n- Sarah does 4 times as much laundry as David\n\n**Find Raymond's amount:**\nRaymond = Sarah \u00f7 2 = 400 \u00f7 2 = 200 pounds\n\n**Find David's amount:**\nSarah = David \u00d7 4\n400 = David \u00d7 4\nDavid = 400 \u00f7 4 = 100 pounds\n\n**Find the difference between Raymond and David:**\nDifference = Raymond - David = 200 - 100 = 100 pounds\n\nANSWER: 100",
+    "usage": {
+      "input": 116,
+      "output": 168
+    }
+  },
+  "e0cb109ea92d099b335de3b893a1950e5b04180c5caba98989bbd0df4e4fc369": {
+    "model": "claude-haiku-4-5",
+    "text": "I need to find the cost of grooming after applying a 30% discount to the original $100 price.\n\nFirst, I'll calculate the discount amount:\n30% of $100 = 0.30 \u00d7 $100 = $30\n\nThen, I'll subtract the discount from the original price:\n$100 - $30 = $70\n\nThe grooming costs $70.\n\nANSWER: 70",
+    "usage": {
+      "input": 110,
+      "output": 95
+    }
+  },
+  "ffdf2e03cf8589ad6f01aa0035da49c7af6a9c261855ff972567af8448c43bf9": {
+    "model": "claude-opus-5",
+    "text": "Sarah: 400. Raymond = half = 200. David = 400/4 = 100. Difference = 100.\n\nANSWER: 100",
+    "usage": {
+      "input": 156,
+      "output": 67
+    }
+  },
+  "8e3dcf60a053702f4f83120008c8b658f3e45736c198ee2332dac0666962d49f": {
+    "model": "claude-haiku-4-5",
+    "text": "I need to find the cost of buying 18 flowers each way, then find the difference.\n\n**Option 1: Packages of 3 for $2.50**\n- Flowers per package: 3\n- Cost per package: $2.50\n- Packages needed for 18 flowers: 18 \u00f7 3 = 6 packages\n- Total cost: 6 \u00d7 $2.50 = $15.00\n\n**Option 2: Packages of 2 for $1.00**\n- Flowers per package: 2\n- Cost per package: $1.00\n- Packages needed for 18 flowers: 18 \u00f7 2 = 9 packages\n- Total cost: 9 \u00d7 $1.00 = $9.00\n\n**Comparison:**\n- Option 1 costs $15.00\n- Option 2 costs $9.00\n- The better price is Option 2 at $9.00\n- Savings: $15.00 - $9.00 = $6.00\n\nANSWER: 6",
+    "usage": {
+      "input": 107,
+      "output": 256
+    }
+  },
+  "8d081f7e3b7da85f2b5b0b9a63d74e72b0718fa5be8123b00fdc24e66c6f40a1": {
+    "model": "claude-opus-5",
+    "text": "First 180 days: 180 cups. Remaining 185 days: 370 cups. Total 550 cups \u00f7 110 = 5 bags.\n\nANSWER: 5",
+    "usage": {
+      "input": 199,
+      "output": 98
+    }
+  },
+  "92e4bf3495569a1fb8dd9257bfbfd778ef038edcf5d5fa9a04965a5b3623e88f": {
+    "model": "claude-opus-5",
+    "text": "30% of $100 is $30 off, so he pays $70.\n\nANSWER: 70",
+    "usage": {
+      "input": 141,
+      "output": 42
+    }
+  },
+  "ee9be44dbcf5e707bfeb27d6ad4c3849b31d89397988c8c401885e2006711607": {
+    "model": "claude-opus-5",
+    "text": "Packages of 3: 18/3 = 6 packages \u00d7 $2.50 = $15.\nPackages of 2: 18/2 = 9 packages \u00d7 $1 = $9.\nSavings: $15 \u2212 $9 = $6.\n\nANSWER: 6",
+    "usage": {
+      "input": 137,
+      "output": 125
+    }
+  },
+  "1ed4ed43e7d34cc4d1b49b7b3c66e2ab6f0c3c8624449bcd637cd60f3c9f7249": {
+    "model": "claude-haiku-4-5",
+    "text": "Looking at this step-by-step:\n\n**Starting amount:** 10 stickers\n\n**Added stickers:**\n- Bought from store: 21 stickers\n- Received for birthday: 23 stickers\n\n**Total stickers:** 10 + 21 + 23 = 54 stickers\n\n**Stickers given away/used:**\n- Gave to sister: 9 stickers\n- Used on greeting card: 28 stickers\n\n**Total stickers removed:** 9 + 28 = 37 stickers\n\n**Stickers remaining:** 54 - 37 = 17 stickers\n\nANSWER: 17",
+    "usage": {
+      "input": 129,
+      "output": 155
+    }
+  },
+  "6aecbbc0643c5593ae1b4b377207315681a5f5c25e3d7f9d2a8683c17379f4f1": {
+    "model": "claude-haiku-4-5",
+    "text": "Let me work through this step-by-step.\n\n**Starting amount:** 24 liters\n\n**Two girls each got 1/6 of the water:**\n- Each girl got: 1/6 \u00d7 24 = 4 liters\n- Both girls together got: 4 + 4 = 8 liters\n\n**A boy got 6 liters:**\n- Boy got: 6 liters\n\n**Total amount distributed:**\n- 8 + 6 = 14 liters\n\n**Water left:**\n- 24 - 14 = 10 liters\n\nANSWER: 10",
+    "usage": {
+      "input": 103,
+      "output": 148
+    }
+  },
+  "d8f77df3e311908b82b6a73e3580ed84e1061c8e868be2ef87fc9f92a77a3d14": {
+    "model": "claude-haiku-4-5",
+    "text": "Let me solve this step by step.\n\n**Grace's weight:**\n125 pounds\n\n**Alex's weight:**\n- 4 times what Grace weighs = 4 \u00d7 125 = 500 pounds\n- 2 pounds less than that = 500 - 2 = 498 pounds\n\n**Combined weight:**\n125 + 498 = 623 pounds\n\nANSWER: 623",
+    "usage": {
+      "input": 97,
+      "output": 95
+    }
+  },
+  "f33e44efce905d260520c6f94f2265c75275ecc05394bab7e9693ea9fd5d4092": {
+    "model": "claude-opus-5",
+    "text": "10 + 21 + 23 = 54; 54 \u2212 9 \u2212 28 = 17\n\nANSWER: 17",
+    "usage": {
+      "input": 172,
+      "output": 57
+    }
+  },
+  "c23ab2f65ba59b25f518170d44713729d6900a380c30e6506f21ae4895df2435": {
+    "model": "claude-haiku-4-5",
+    "text": "Let me work through this step-by-step.\n\n1. First, find the total number of roses:\n   - 3 rose bushes \u00d7 25 roses per bush = 75 roses\n\n2. Then, find the total number of thorns:\n   - 75 roses \u00d7 8 thorns per rose = 600 thorns\n\nANSWER: 600",
+    "usage": {
+      "input": 98,
+      "output": 87
+    }
+  },
+  "5a80e80531fd33169acbe599ea4919cf8a54502aa626a74dc6a1d459ed0fe126": {
+    "model": "claude-opus-5",
+    "text": "4\u00d7125 = 500, minus 2 = 498. Combined: 498 + 125 = 623.\n\nANSWER: 623",
+    "usage": {
+      "input": 133,
+      "output": 60
+    }
+  },
+  "7dfc3b0a0f2ad55b75b50c8e5cd6419a0af4abef34a8cd6320809f7fe244e239": {
+    "model": "claude-opus-5",
+    "text": "Each girl got 24/6 = 4 liters, so two girls took 8 liters. Remaining: 24 \u2212 8 = 16. After the boy takes 6: 16 \u2212 6 = 10.\n\nANSWER: 10",
+    "usage": {
+      "input": 126,
+      "output": 106
+    }
+  },
+  "70f78b249b662fa0e98fae0fd04f99d9e55ee9882e741974e1bb6d091e77e109": {
+    "model": "claude-haiku-4-5",
+    "text": "Let me work through this step-by-step.\n\nLet's say the team lost L games.\nThen they won L + 8 games.\n\nThe total games played is:\nL + (L + 8) = 22\n\nSolving for L:\n2L + 8 = 22\n2L = 14\nL = 7\n\nSo they lost 7 games and won 7 + 8 = 15 games.\n\nLet me verify: 15 + 7 = 22 \u2713\n\nANSWER: 15",
+    "usage": {
+      "input": 88,
+      "output": 129
+    }
+  },
+  "ab5c47fac0fc13c14f0ed6c18c601b5c0ccd986023a115735b4e25ed9cd09821": {
+    "model": "claude-opus-5",
+    "text": "3 \u00d7 25 = 75 roses; 75 \u00d7 8 = 600 thorns.\n\nANSWER: 600",
+    "usage": {
+      "input": 130,
+      "output": 51
+    }
+  },
+  "1153af01b601f8e81a888ee229390bda8d886a17c685d4b8a46023e9ef03f67e": {
+    "model": "claude-haiku-4-5",
+    "text": "Let me work through this step-by-step.\n\n**Find how many years Gene has been vacationing:**\n- He started vacationing at age 23\n- He is now 34\n- Years of vacationing = 34 - 23 = 11 years\n\n**Find how many vacation shirts he has:**\n- He goes on 4 vacations per year\n- Over 11 years: 4 \u00d7 11 = 44 shirts\n\n**Find the total quilt blocks:**\n- Each shirt is its own quilt block\n- So he has 44 quilt blocks in total\n\nANSWER: 44",
+    "usage": {
+      "input": 155,
+      "output": 145
+    }
+  },
+  "95a437dfc074fa15ad80a841b754133ff01098df86722f74c407386010693084": {
+    "model": "claude-opus-5",
+    "text": "Let losses = L; wins = L + 8. Then L + L + 8 = 22 \u2192 2L = 14 \u2192 L = 7, so wins = 15.\n\nANSWER: 15",
+    "usage": {
+      "input": 108,
+      "output": 93
+    }
+  },
+  "107219c5537bcc5cdced92f32576ce215a6fbd6069c775e0ddab502c68544d18": {
+    "model": "claude-haiku-4-5",
+    "text": "Let me work through this step-by-step.\n\n**First alarm:** rang 4 times\n\n**Second alarm:** rang for 3 times as long as the first time\n- 3 \u00d7 4 = 12 times\n\n**Third alarm:** rang for half as long as the second time\n- 12 \u00f7 2 = 6 times\n\n**Total rings:** 4 + 12 + 6 = 22 times\n\nANSWER: 22",
+    "usage": {
+      "input": 151,
+      "output": 113
+    }
+  },
+  "e763eaca3ac262e6a468e944ade313e44a8e1332c121da5254b611570b05793c": {
+    "model": "claude-opus-5",
+    "text": "First: 4. Second: 12. Third: 6. Total: 22.\n\nANSWER: 22",
+    "usage": {
+      "input": 191,
+      "output": 49
+    }
+  },
+  "71b488be8c8c8042a1690631439318e37f95291207dbf97bc3040a32fdbb9d9a": {
+    "model": "claude-opus-5",
+    "text": "11 years of vacations \u00d7 4 shirts per year = 44 blocks.\n\nANSWER: 44",
+    "usage": {
+      "input": 199,
+      "output": 53
+    }
+  },
+  "e965370d3629c1202ec228090e6e90afb787c22014647e42a7137905bc6d67af": {
+    "model": "claude-haiku-4-5",
+    "text": "Let me set up this problem.\n\nLet h = copies Harald sold\n\nThen Marilyn sold 10h copies (10 times as many)\n\nTogether they sold 88,000 copies:\nh + 10h = 88,000\n11h = 88,000\nh = 88,000 \u00f7 11\nh = 8,000\n\nLet me verify: Harald sold 8,000 copies, Marilyn sold 80,000 copies\n8,000 + 80,000 = 88,000 \u2713\n\nANSWER: 8000",
+    "usage": {
+      "input": 99,
+      "output": 136
+    }
+  },
+  "3093b470c99edab91af58c571bffcd0cae51dee2a8c5ac787caf188b2202dfe3": {
+    "model": "claude-haiku-4-5",
+    "text": "I need to find Sylvie's annual salary after three more years of service (so 8 years total from now).\n\n**Current situation (just completed 5 years):**\n- Monthly salary: $600\n- Annual salary: $600 \u00d7 12 = $7,200\n\n**Salary increase policy:**\n- Every year after 5 years: increase by 10% of the initial salary ($600/month)\n- Initial salary = $600/month = $7,200/year\n- Annual increase = 10% \u00d7 $7,200 = $720 per year\n\n**After three more years of service (at 8 years total):**\n- She will have received 3 salary increases (at year 6, year 7, and year 8)\n- Total increase = 3 \u00d7 $720 = $2,160\n- New annual salary = $7,200 + $2,160 = $9,360\n\nANSWER: 9360",
+    "usage": {
+      "input": 144,
+      "output": 223
+    }
+  },
+  "76d908154c0b747ce0bd7b22b7395683edf79145e14f96a443558fbf409dda42": {
+    "model": "claude-opus-5",
+    "text": "12 bags \u00d7 $2 = $24.\n\nANSWER: 24",
+    "usage": {
+      "input": 151,
+      "output": 39
+    }
+  },
+  "05e9aafa247d8e3e40175b8bcdc800c92167ec2528d0b289cc5abe27a1a7be3a": {
+    "model": "claude-opus-5",
+    "text": "11x = 88,000 \u2192 x = 8,000\n\nANSWER: 8000",
+    "usage": {
+      "input": 131,
+      "output": 41
+    }
+  },
+  "0c5f04fbe30ff42be2e46767bf560a4c199fc027e41acac4eedfd226122cb2a6": {
+    "model": "claude-haiku-4-5",
+    "text": "Let me work through this step-by-step.\n\n**Given information:**\n- Christina invited 16 friends\n- She needs 0.75 gift bags per invited guest (accounting for 1/4 not showing up)\n- Gift bags cost $2 each\n\n**Step 1: Calculate total gift bags needed**\n- Number of gift bags = 16 guests \u00d7 0.75 gift bags per guest\n- Number of gift bags = 12 gift bags\n\n**Step 2: Calculate total cost**\n- Total cost = 12 gift bags \u00d7 $2 per bag\n- Total cost = $24\n\nANSWER: 24",
+    "usage": {
+      "input": 115,
+      "output": 146
+    }
+  },
+  "17fbd5f10173118f473881ac6bcbf48cf5a7b2f9da9d270c35c19958509ae1dd": {
+    "model": "claude-haiku-4-5",
+    "text": "I need to find the total amount of potato salad Ted needs to bring.\n\n**Given information:**\n- An adult dinosaur eats 10 lbs of potato salad\n- A child eats half as much as an adult\n- There will be 20 adults and 5 children\n\n**Step 1: Find how much a child eats.**\n- A child eats: 10 \u00f7 2 = 5 lbs\n\n**Step 2: Calculate total for all adults.**\n- 20 adults \u00d7 10 lbs per adult = 200 lbs\n\n**Step 3: Calculate total for all children.**\n- 5 children \u00d7 5 lbs per child = 25 lbs\n\n**Step 4: Calculate total potato salad needed.**\n- Total = 200 + 25 = 225 lbs\n\nANSWER: 225",
+    "usage": {
+      "input": 159,
+      "output": 204
+    }
+  },
+  "7a62245f22112cf5a1a74a144febfc7376ccba2b4c703684ddf3208e0678a971": {
+    "model": "claude-opus-5",
+    "text": "Adults: 20 \u00d7 10 = 200 lbs. Children: 5 \u00d7 5 = 25 lbs. Total = 225 lbs.\n\nANSWER: 225",
+    "usage": {
+      "input": 214,
+      "output": 76
+    }
+  },
+  "385b7d9200262f3dd4ecfd190e7210adc28477336165509c53cab2dea2c46705": {
+    "model": "claude-haiku-4-5",
+    "text": "Let me work through this step-by-step.\n\n**Cindy's pets:**\nCindy has 4 pets\n\n**Marcia's pets:**\nMarcia has two more pets than Cindy\nMarcia = 4 + 2 = 6 pets\n\n**Jan's pets:**\nJan has three times the number of pets as Marcia\nJan = 3 \u00d7 6 = 18 pets\n\n**Total pets:**\nTotal = 4 + 6 + 18 = 28 pets\n\nANSWER: 28",
+    "usage": {
+      "input": 105,
+      "output": 132
+    }
+  },
+  "8877b1d7457fd5510fde17740dacde2fdb189a4e511eda117fc5314fff320b56": {
+    "model": "claude-haiku-4-5",
+    "text": "Let me work through this step-by-step.\n\nGiven information:\n- James is 10 years old\n- James is 1 year younger than Corey\n- Amy is 2 years younger than Corey\n- Amy is 5 years older than Jackson\n\n**Find Corey's age:**\n- James is 1 year younger than Corey\n- James is 10\n- So Corey is 10 + 1 = 11 years old\n\n**Find Amy's age:**\n- Amy is 2 years younger than Corey\n- Corey is 11\n- So Amy is 11 - 2 = 9 years old\n\n**Find Jackson's age:**\n- Amy is 5 years older than Jackson\n- Amy is 9\n- So Jackson is 9 - 5 = 4 years old\n\nANSWER: 4",
+    "usage": {
+      "input": 124,
+      "output": 206
+    }
+  },
+  "6ba313ff1e9f0f988584867730902f28cc2c3b817ed40a1de100ba006d1ac0a3": {
+    "model": "claude-opus-5",
+    "text": "James 10, Corey 11, Amy = 11\u22122 = 9, Jackson = 9\u22125 = 4.\n\nANSWER: 4",
+    "usage": {
+      "input": 161,
+      "output": 72
+    }
+  },
+  "90eaedb07bf340e3b48d6ba9a576c972c8b54a14d33257994b94be550df8f065": {
+    "model": "claude-haiku-4-5",
+    "text": "Let me work through this step-by-step.\n\n**Given information:**\n- Number of dogs = 60\n- Number of cats = 2 \u00d7 number of dogs\n- Number of rabbits = (dogs + cats) - 12\n\n**Finding the number of cats:**\nCats = 2 \u00d7 60 = 120\n\n**Finding the number of rabbits:**\nRabbits = (60 + 120) - 12 = 180 - 12 = 168\n\n**Finding the total number of pets:**\nTotal = Dogs + Cats + Rabbits\nTotal = 60 + 120 + 168 = 348\n\nANSWER: 348",
+    "usage": {
+      "input": 114,
+      "output": 156
+    }
+  },
+  "d2e736728d481065c2f540038b7d0a49c30ed799d473b175e9edf3556480558d": {
+    "model": "claude-opus-5",
+    "text": "Lee: 38, so Gerald was 40 seconds. Improved by 10%: 40 \u00d7 0.9 = 36.\n\nANSWER: 36",
+    "usage": {
+      "input": 206,
+      "output": 71
+    }
+  },
+  "ee483da1efbc0cd3fc70e111543c2e138799d033e40aaeac1c07bc0ccc41e669": {
+    "model": "claude-opus-5",
+    "text": "Dogs = 60, cats = 120, combined = 180, rabbits = 180 \u2212 12 = 168. Total = 60 + 120 + 168 = 348.\n\nANSWER: 348",
+    "usage": {
+      "input": 156,
+      "output": 96
+    }
+  },
+  "fc78a0e3625525243cf7b6d95cb6339ec817cbf3c360a7befb792b1325f357a9": {
+    "model": "claude-haiku-4-5",
+    "text": "I need to find how many girls are not in the girl scout.\n\n**Step 1: Find the number of boys.**\n- Boys = 2/5 \u00d7 200 = 80 boys\n\n**Step 2: Find the number of girls.**\n- Girls = 200 - 80 = 120 girls\n\n**Step 3: Find how many girls are in girl scout.**\n- Girls in girl scout = 2/3 \u00d7 120 = 80 girls\n\n**Step 4: Find how many girls are NOT in girl scout.**\n- Girls not in girl scout = 120 - 80 = 40 girls\n\nANSWER: 40",
+    "usage": {
+      "input": 107,
+      "output": 153
+    }
+  },
+  "82e71bd5849ba6650758b2074e0c7ad9fb657605047f9bcc51d3369dcb0c0194": {
+    "model": "claude-opus-5",
+    "text": "Girls: 200 \u2212 80 boys = 120. In scouts: 80. Not in scouts: 40.\n\nANSWER: 40",
+    "usage": {
+      "input": 136,
+      "output": 77
+    }
+  },
+  "1811d0fdab6230f47577ae466a5d8f1279a25817928b9bd041f1e731054ed186": {
+    "model": "claude-opus-5",
+    "text": "Cindy 4, Marcia 6, Jan 18; total 28.\n\nANSWER: 28",
+    "usage": {
+      "input": 134,
+      "output": 61
+    }
+  },
+  "59cdb2eb24dd23ea4b05ef7735bcba96bbdafabdb3446f81c745adf7285f4a0a": {
+    "model": "claude-haiku-4-5",
+    "text": "Looking at this step-by-step:\n\n**Harry's sleep:** 9 hours\n\n**James's sleep:** 2/3 of what Harry slept\n- James slept: 2/3 \u00d7 9 = 6 hours\n\n**Difference:** 9 - 6 = 3 hours\n\nHarry slept 3 more hours than James.\n\nANSWER: 3",
+    "usage": {
+      "input": 100,
+      "output": 93
+    }
+  },
+  "24f52d44384c93195befd4eaa36f78a5811e8b4252ac8abf281de158c91a299d": {
+    "model": "claude-haiku-4-5",
+    "text": "I need to find Gerald's new time after his diet improved his speed by 10%.\n\n**Step 1: Find Gerald's original time.**\n\nLee used to run 2 seconds faster than Gerald.\n- Lee's time: 38 seconds\n- Gerald's original time: 38 + 2 = 40 seconds\n\n**Step 2: Understand what \"improved his speed by 10%\" means.**\n\nIf Gerald improved his speed by 10%, his new speed is 110% of his original speed.\n\nSince speed and time are inversely related (faster speed = less time):\n- If speed increases by 10%, the time decreases\n- New time = Original time \u00f7 1.10\n\n**Step 3: Calculate Gerald's new time.**\n\nGerald's new time = 40 \u00f7 1.10 = 40/1.10 = 400/11 \u2248 36.36 seconds\n\nLet me verify: \n- Original speed: 400 meters / 40 seconds = 10 m/s\n- New speed with 10% improvement: 10 \u00d7 1.10 = 11 m/s\n- New time: 400 meters / 11 m/s = 400/11 seconds \u2248 36.36 seconds \u2713\n\nANSWER: 36.36",
+    "usage": {
+      "input": 146,
+      "output": 311
+    }
+  },
+  "de97bd7754383be64bea9d05f06a82e6674f0c0c6cc37db5148b539ee45ef9e2": {
+    "model": "claude-opus-5",
+    "text": "James slept 6 hours; 9 \u2212 6 = 3.\n\nANSWER: 3",
+    "usage": {
+      "input": 130,
+      "output": 42
+    }
+  },
+  "e38cd7393b0358b2ebb04a7f0a582bed5e89b54d3f15cdf525e6d5e29f800c33": {
+    "model": "claude-opus-5",
+    "text": "10% of $600 = $60 raise. After the 5-year mark and additional service, her monthly salary rises to $720, so annual = 720 \u00d7 12 = $8640.\n\nANSWER: 8640",
+    "usage": {
+      "input": 178,
+      "output": 379
+    }
+  },
+  "97ebf34d558576d0d9a7ab89bd746380d410d6bc7d29d295c5dc736b66243055": {
+    "model": "claude-haiku-4-5",
+    "text": "Looking at this step-by-step:\n\n**Plants Mary already has:**\n- 40 window ledges \u00d7 2 plants per ledge = 80 plants\n\n**Plants after receiving new ones:**\n- 80 + 18 = 98 plants\n\n**Plants she's giving away:**\n- 1 plant from each of 40 ledges = 40 plants\n\n**Plants remaining:**\n- 98 - 40 = 58 plants\n\nANSWER: 58",
+    "usage": {
+      "input": 151,
+      "output": 114
+    }
+  },
+  "874cb301cc19d33fccdef9ed847a6817fcf6dd34474f9efac4aacc5483d1820e": {
+    "model": "claude-opus-5",
+    "text": "64 oz of canned tomatoes needed = 4 cans \u00d7 3 = 12 tomatoes.\n\nANSWER: 12",
+    "usage": {
+      "input": 177,
+      "output": 81
+    }
+  },
+  "d6aafba88942e36777e55519f8f5ed0956f2b453c26f86616cda79efd914467e": {
+    "model": "claude-haiku-4-5",
+    "text": "Let me work through this step-by-step.\n\n**Given information:**\n- Originally 30 cars on the motorway\n- 5 cars took an exit (so they didn't drive through)\n- Cars that actually drove through the jam = 30 - 5 = 25 cars\n- In the remaining 15 minutes (second half), 20 cars drove through\n- In the first 15 minutes, some unknown number drove through\n\n**Solution:**\n- Total cars that drove through = 25 cars\n- Cars in second 15 minutes = 20 cars\n- Cars in first 15 minutes = 25 - 20 = 5 cars\n\nANSWER: 5",
+    "usage": {
+      "input": 160,
+      "output": 161
+    }
+  },
+  "526a9f5b5c3ce457fc169d9c7ec221353e86e4fb96bf2dd40cc9c20062587f6f": {
+    "model": "claude-haiku-4-5",
+    "text": "Let me work through this step-by-step.\n\n**Given information:**\n- Canned tomatoes lose half their volume when cooked into sauce\n- Each 16 oz can contains 3 tomatoes\n- The final sauce made was 32 ounces\n\n**Find the starting volume of tomatoes:**\nIf the tomatoes lose half their volume, then:\n- Final volume = Starting volume \u00f7 2\n- 32 = Starting volume \u00f7 2\n- Starting volume = 32 \u00d7 2 = 64 ounces\n\n**Find how many cans were used:**\n- Each can is 16 ounces\n- Number of cans = 64 \u00f7 16 = 4 cans\n\n**Find the number of tomatoes:**\n- Each can contains 3 tomatoes\n- Total tomatoes = 4 cans \u00d7 3 tomatoes per can = 12 tomatoes\n\nANSWER: 12",
+    "usage": {
+      "input": 131,
+      "output": 224
+    }
+  },
+  "ab5c1a34a99de5505b7fc93da3eb95f1c9e45df1893f4a68d2a0c6451fc5f28e": {
+    "model": "claude-opus-5",
+    "text": "30 \u2212 5 exits = 25 cars driving through; 25 \u2212 20 in the second half = 5.\n\nANSWER: 5",
+    "usage": {
+      "input": 214,
+      "output": 61
+    }
+  },
+  "5ede4da3f65afd0ce8d9dae4b3aafc33479637be2b8783c288f47fde42b3ac10": {
+    "model": "claude-opus-5",
+    "text": "80 existing + 18 new = 98; giving away 40 (one per ledge) leaves 58.\n\nANSWER: 58",
+    "usage": {
+      "input": 199,
+      "output": 64
+    }
+  }
+}

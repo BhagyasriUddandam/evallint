@@ -41,6 +41,7 @@ from __future__ import annotations
 import argparse
 import re
 import sys
+import threading
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
@@ -107,14 +108,44 @@ def _number(text: str, pattern: re.Pattern[str], what: str) -> float:
 
 def make_scorer(cache: ResponseCache, client, verbose: bool):
     """Build the injected scorer. This is the whole integration surface:
-    evallint calls score(case, model) and never learns who the provider is."""
+    evallint calls score(case, model) and never learns who the provider is.
+
+    THE REPEATS-VERSUS-CACHE PROBLEM. `repeats=N` exists to detect verdicts
+    that change between identical runs. A cache keyed only on
+    (model, system, prompt) defeats it completely: all N repeats hit the same
+    key, get the same stored response, agree by construction, and the check
+    reports 0 unstable. That is not a measurement, it is a tautology dressed
+    as one -- and it would read as "fully reproducible", the most reassuring
+    possible output, while having tested nothing.
+
+    So each repeat of a given (case, model) gets its own attempt number, and
+    that number goes in the key. The scorer counts the calls itself, because
+    the check deliberately does not tell the scorer which repeat it is on --
+    the contract is score(case, model) and nothing more.
+
+    Attempt 0 omits the field rather than storing `attempt: 0`. That keeps the
+    keys already on disk valid, so the 200 responses from the first run are
+    still reused instead of re-bought. The attempt number is a re-sampling
+    nonce, not an input that changes what the model would say, so leaving it
+    out of the first key loses no correctness.
+    """
+    attempts: dict[tuple[str, str], int] = {}
+    counter_lock = threading.Lock()
 
     def score(case, model: str) -> bool:
+        with counter_lock:
+            n = attempts.get((case.id, model), 0)
+            attempts[(case.id, model)] = n + 1
+
+        # Every input that changes the answer is in the key. Omitting the
+        # system prompt here was a real bug earlier in this project: it served
+        # answers from a previous prompt and looked fine.
+        key = {"model": model, "system": SYSTEM, "prompt": case.input}
+        if n:
+            key["attempt"] = n
+
         record = cache.get_or_call(
-            # Every input that changes the answer is in the key. Omitting the
-            # system prompt here was a real bug earlier in this project: it
-            # served answers from a previous prompt and looked fine.
-            {"model": model, "system": SYSTEM, "prompt": case.input},
+            key,
             lambda: call_model(client, model, SYSTEM, case.input),
         )
         got = _number(record["text"], _MARKER, "ANSWER: line")
@@ -127,10 +158,16 @@ def make_scorer(cache: ResponseCache, client, verbose: bool):
     return score
 
 
-def cost_of(cache: ResponseCache) -> dict[str, dict]:
-    """Sum real token usage out of the cache, per model."""
+def cost_of_records(records) -> dict[str, dict]:
+    """Sum real token usage over exactly these records, per model.
+
+    Takes records rather than the cache because the smoke test must price only
+    the calls IT made. Pricing the whole cache instead was a real bug: once a
+    full run was stored, the smoke estimate multiplied the entire cache total
+    by the case count and quoted $35.82 for a $0.36 run.
+    """
     totals: dict[str, dict] = {}
-    for record in cache.values():
+    for record in records:
         model = record.get("model")
         usage = record.get("usage") or {}
         t = totals.setdefault(model, {"calls": 0, "in": 0, "out": 0, "usd": 0.0})
@@ -143,9 +180,14 @@ def cost_of(cache: ResponseCache) -> dict[str, dict]:
     return totals
 
 
-def report_cost(cache: ResponseCache) -> float:
+def cost_of(cache: ResponseCache) -> dict[str, dict]:
+    """Everything stored in the cache, per model."""
+    return cost_of_records(cache.values())
+
+
+def report_cost(cache: ResponseCache, label: str = "in the cache") -> float:
     totals = cost_of(cache)
-    print("\n  cost (from real token usage in the cache):")
+    print(f"\n  cost (from real token usage {label}):")
     grand = 0.0
     for model, t in sorted(totals.items()):
         print(
@@ -163,6 +205,10 @@ def main() -> int:
                     help="how many GSM8K cases to score (default 100)")
     ap.add_argument("--sample-seed", type=int, default=0)
     ap.add_argument("--max-workers", type=int, default=8)
+    ap.add_argument("--repeats", type=int, default=1,
+                    help="score each case this many times; a case whose verdict "
+                         "is not unanimous is reported UNSTABLE and excluded. "
+                         "Multiplies cost by this factor.")
     ap.add_argument("--smoke", action="store_true",
                     help="ONE call per model, print real cost, then stop")
     ap.add_argument("--verbose", action="store_true",
@@ -194,15 +240,31 @@ def main() -> int:
         print(f"\n  SMOKE TEST — one call per model on {case.id}")
         print(f"    question: {case.input[:100]}...")
         scorer = make_scorer(cache, client, verbose=True)
+        used = []
         for model in (WEAK, STRONG):
             before = len(cache)
             correct = scorer(case, model)
             cached = " (from cache)" if len(cache) == before else ""
             print(f"    {model}: correct={correct}{cached}")
-        total = report_cost(cache)
-        n = args.sample * 2
-        print(f"\n  extrapolated to {n} calls: "
-              f"~${total / 2 * args.sample:.2f} (2 calls measured)")
+            # Price ONLY these two calls. The cache may already hold a full
+            # run, and pricing all of it made the estimate 100x too high.
+            used.append(cache.get({"model": model, "system": SYSTEM,
+                                   "prompt": case.input}))
+        smoke = cost_of_records([r for r in used if r])
+        total = sum(t["usd"] for t in smoke.values())
+        print("\n  cost of THESE 2 calls only:")
+        for model, t in sorted(smoke.items()):
+            print(f"    {model:<22} in {t['in']:>6}  out {t['out']:>6}  "
+                  f"${t['usd']:.4f}")
+        # The 2 measured calls are ONE case scored by both models, so `total`
+        # is the per-CASE cost, not the per-call cost. An earlier version
+        # divided by 2 and then multiplied by the case count, which quoted half
+        # the real figure -- an under-estimate is the worst direction for a
+        # number whose whole job is to let you approve a spend.
+        print(f"\n  measured: ${total:.4f} for 1 case (both models)")
+        print(f"  estimate for {args.sample} cases "
+              f"({args.sample * 2} calls): ~${total * args.sample:.2f}")
+        print("  case 1 is GSM8K's shortest question, so treat this as a floor")
         print("  re-run without --smoke to do the full run")
         return 0
 
@@ -211,6 +273,7 @@ def main() -> int:
         [WEAK, STRONG],              # WEAKEST FIRST — inversion depends on it
         sample=args.sample,
         sample_seed=args.sample_seed,
+        repeats=args.repeats,
         max_workers=args.max_workers,
     ).run(eval_set)
 
@@ -219,7 +282,7 @@ def main() -> int:
         "scored by exact numeric comparison against GSM8K's '#### N' marker — "
         "NO LLM judge, so no self-grading artifact is possible",
     ])
-    report_cost(cache)
+    report_cost(cache, "for everything in the cache")
     return 0
 
 
