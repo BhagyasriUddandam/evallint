@@ -51,8 +51,20 @@ def test_fires_when_the_answer_is_pasted_into_the_input() -> None:
 
     assert result.stats["n_contained"] == 1
     assert result.stats["leaking_case_ids"] == ["leak_1"]
-    assert len(result.warnings) == 1
-    assert "verbatim" in result.warnings[0].message
+
+    # This fixture text ("Hint: the correct label is ...") is caught by TWO
+    # detectors: verbatim containment and the explicit-reveal phrase. Both are
+    # correct, and the reveal one is HIGH confidence because a phrase whose job
+    # is to announce the answer, followed by the answer, is hard to explain
+    # innocently.
+    types = {leak["type"] for leak in result.stats["potential_leaks"]}
+    assert types == {"expected_in_input", "explicit_reveal"}
+    reveal = next(
+        leak for leak in result.stats["potential_leaks"]
+        if leak["type"] == "explicit_reveal"
+    )
+    assert reveal["confidence"] == "high"
+    assert any("verbatim" in f.message for f in result.findings)
 
 
 def test_containment_ignores_case_and_whitespace() -> None:

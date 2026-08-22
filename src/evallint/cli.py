@@ -119,6 +119,14 @@ def _gate(results: list[CheckResult], fail_on: str) -> tuple[int, str]:
     "limitations each check reports.",
 )
 @click.option(
+    "--leakage-overlap",
+    is_flag=True,
+    help="Enable the token-overlap leakage detector. OFF by default because it "
+    "is measurably unreliable: on GSM8K it reaches 100% overlap with no leakage "
+    "present, since reference answers restate the question. Findings from it are "
+    "labelled LOW confidence.",
+)
+@click.option(
     "--compare",
     type=click.Choice([f.value for f in CompareFields]),
     default=CompareFields.INPUT_EXPECTED.value,
@@ -167,6 +175,7 @@ def main(
     min_class_share: float,
     min_class_count: int,
     fail_on: str,
+    leakage_overlap: bool,
     compare: str,
     field_map: tuple[str, ...],
     config_path: Path | None,
@@ -253,7 +262,7 @@ def main(
         ImbalanceCheck(
             min_class_share=min_class_share, min_class_count=min_class_count
         ).run(eval_set),
-        LeakageCheck().run(eval_set),
+        LeakageCheck(overlap=leakage_overlap).run(eval_set),
     ]
     notes = [DISCRIMINATION_NOTE]
     # Always surface a non-identity mapping. A silently wrong column choice

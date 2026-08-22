@@ -26,6 +26,38 @@ reference answer and grader before blaming difficulty), and `inverted` (a *weake
 passed where a stronger one failed — usually a broken reference answer, and worth more
 than either).
 
+**Leakage, seven deterministic detectors.** A case whose answer can be read off
+its own prompt inflates the score while measuring reading. **No LLM judge is used
+at any confidence level** — every detector is a deterministic function of the text:
+
+| detector | confidence | catches |
+|---|---|---|
+| `expected_in_input` | moderate | the reference answer verbatim in the input |
+| `label_in_input` | moderate | the class label as a word in the input |
+| `explicit_reveal` | **high** | "the correct answer is X" where X *is* the answer |
+| `answer_in_instructions` | **high** | the answer in the preamble, before the item marker |
+| `metadata_leak` | moderate | the answer in a metadata field that isn't an answer field |
+| `fewshot_target` | **high** | the evaluation target inside the case's own demonstrations |
+| `high_overlap` | low | answer/input token overlap — **opt-in**, see below |
+
+Confidence is **ordinal with a stated basis, not a probability**. HIGH means the
+evidence is hard to explain innocently. MODERATE means the observation is certain
+but its interpretation is not — the answer appearing in the input is exactly what
+extractive QA looks like. Only HIGH warns; the rest are informational, because a
+check that warns about legitimate task design is a check people switch off.
+
+Every finding carries **case ID, type, evidence, confidence and an explanation**,
+and the wording is always "potential leakage" — never a verdict that a case is
+invalid.
+
+`--leakage-overlap` enables the seventh detector, which is off by default for a
+measured reason: on GSM8K, answer/input overlap reaches **100% with no leakage at
+all**, because reference answers there are worked solutions that restate the
+question. A planted leak scores the same, so no threshold separates them.
+
+Validated at **zero false positives across GSM8K, MMLU, TruthfulQA and
+HellaSwag** — a check that fires on real public datasets is worse than no check.
+
 **Semantic redundancy, at five levels.** Only one of the five uses a cosine
 threshold, which is deliberate — a single tuned number should not be the ground
 truth for whether two cases are the same. `exact`, `normalized` (identical after
@@ -607,7 +639,7 @@ runner.
 ## Development
 
 ```bash
-uv run pytest    # 388 tests
+uv run pytest    # 425 tests
 ```
 
 Every check is tested both ways: it must **fire on known-bad input** and **stay quiet on

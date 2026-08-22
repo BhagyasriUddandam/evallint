@@ -4,6 +4,57 @@ All notable changes to this project are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.6.0] — 2026-08-22
+
+### Added
+- **Leakage analyser: seven deterministic detectors**, up from one. `NO LLM
+  JUDGE is used at any confidence level` — every detector is a deterministic
+  function of the text, because a judge would make the result depend on a
+  model's opinion and two findings in this project were already retracted for
+  exactly that.
+
+      expected_in_input       moderate   answer verbatim in the input
+      label_in_input          moderate   class label as a word in the input
+      explicit_reveal         HIGH       "the correct answer is X", X = answer
+      answer_in_instructions  HIGH       answer in the preamble, pre-marker
+      metadata_leak           moderate   answer in a non-answer metadata field
+      fewshot_target          HIGH       target inside the case's own demos
+      high_overlap            low        token overlap -- OPT-IN
+
+- **Per-finding reporting**: case ID, leakage type, evidence, confidence,
+  severity and an explanation, in `stats["potential_leaks"]` and in the
+  rendered findings.
+
+- **Confidence is ordinal with a stated basis, not a probability.** Attaching
+  0.87 to "this looks like leakage" would invent precision that does not exist.
+  HIGH means hard to explain innocently; MODERATE means the observation is
+  certain but its interpretation is not — the answer appearing in the input is
+  exactly what extractive QA looks like. Only HIGH warns.
+
+- **`--leakage-overlap` / `overlap=True`** for the seventh detector, off by
+  default for a measured reason: on GSM8K, answer/input overlap reaches 100%
+  with NO leakage, because reference answers restate the question, and a
+  planted leak scores the same. A test deliberately asserts that false positive
+  so the reason stays documented rather than becoming folklore.
+
+- Terminology is "potential leakage" throughout, and a test asserts no finding
+  contains "invalid", "bad case", "must be removed" or similar.
+
+### Fixed
+- **100 false positives on TruthfulQA.** The metadata detector exempted
+  answer-bookkeeping fields by exact key name, so `correct_answers` — which
+  naturally contains `best_answer` — was not exempt, and every one of 100 cases
+  was flagged. The exemption now matches substrings. Found by running the check
+  against the four real public datasets rather than by reasoning about it.
+  Validated at **zero false positives** on GSM8K, MMLU, TruthfulQA and
+  HellaSwag.
+
+### Compatibility
+- `LeakageCheck`'s existing stats keys are unchanged and detector 1 behaves
+  exactly as before, including its short-answer and closed-vocabulary guards.
+  One existing test was updated: its fixture text "Hint: the correct label is
+  ..." is now caught by two detectors rather than one, which is correct.
+
 ## [0.5.0] — 2026-08-22
 
 ### Added
@@ -326,6 +377,7 @@ First release.
   `embedder=` callable instead.
 - Not an eval runner. It audits the dataset that eval runners consume.
 
+[0.6.0]: https://github.com/BhagyasriUddandam/evallint/releases/tag/v0.6.0
 [0.5.0]: https://github.com/BhagyasriUddandam/evallint/releases/tag/v0.5.0
 [0.4.0]: https://github.com/BhagyasriUddandam/evallint/releases/tag/v0.4.0
 [0.3.0]: https://github.com/BhagyasriUddandam/evallint/releases/tag/v0.3.0
