@@ -4,6 +4,73 @@ All notable changes to this project are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.9.0] — 2026-08-22
+
+### Added
+- **`compare_models`** — paired statistical comparison of two or more models on
+  a shared eval set. Cases are paired, so the tests are paired: only the
+  DISCORDANT cases carry information about which model is better, and
+  independent-sample tests would throw the pairing away, inflate the variance
+  and hide real differences.
+
+  Reports per-model Wilson intervals, the paired difference with a paired
+  bootstrap interval, an exact McNemar test, three effect sizes, a minimum
+  detectable effect, and a verdict.
+
+- **Statistical and practical significance are separate verdicts**, in a 2x2:
+
+                          | effect >= threshold | effect < threshold
+      significant         | real and meaningful | real but too small
+      not significant     | UNDERPOWERED        | no meaningful difference
+
+  `underpowered` is the cell people misread as "no difference": the eval saw an
+  effect worth caring about and could not resolve it. The answer is more cases,
+  not a conclusion. `no_information` is separate again -- two models that never
+  disagreed tell you nothing, which is not evidence of equivalence.
+
+- **Three effect sizes**, because the obvious one misleads alone. The risk
+  difference shrinks as models agree more, so the same disagreement looks
+  smaller on an easy eval; Cohen's g and the odds ratio do not. Verified by a
+  test: the same 2-vs-18 split gives a 4x larger risk difference on a 100-case
+  set than a 400-case one, with identical g and odds ratio.
+
+- **The practical threshold is the user's.** The 2pp default is a placeholder
+  with no derivation, is labelled as one, and is reported in every result. A
+  test asserts that changing it moves the verdict while leaving the p-value and
+  effect size untouched.
+
+- **Holm-adjusted p-values** whenever more than one pair is compared. Four
+  models is six tests, and six unadjusted tests at alpha=0.05 carry roughly a
+  26% chance of at least one false positive.
+
+- New statistics in `separation`: `mcnemar_odds_ratio` (log-scale interval,
+  Haldane correction applied and disclosed when a cell is zero), `cohens_g`,
+  `paired_bootstrap_difference` (resamples CASES, keeping each case's two
+  outcomes together), `holm_adjust`.
+
+- 37 exports, up from 36.
+
+### The brief's example, reproduced
+      A: 87.1% (871/1000, 95% CI 84.9%-89.0%)
+      B: 88.4% (884/1000, 95% CI 86.3%-90.2%)
+      difference +1.3 pp, 95% CI (paired bootstrap) [+0.1, +2.4] pp
+      McNemar exact p=0.041 on 35 discordant of 1000
+      Cohen's g 0.19 (medium), odds ratio 2.18
+      -> real, but below a 2pp threshold: detectable without being worth acting on
+
+A p-value-only report would have said "significant" and stopped.
+
+### Tests
+33 new, covering the five required scenarios -- equal models, small samples,
+large differences, borderline differences, highly imbalanced datasets -- plus
+multiple comparisons and the reporting contract. Contingency tables are built
+exactly so every expected value is derivable.
+
+One test was corrected after running it: it claimed to check the case where the
+Wald interval and the exact test disagree, but used n=40, where they agree. The
+phenomenon needs the discordant cases to be a large share of n (3 of 12, not 3
+of 40). The corrected test records why.
+
 ## [0.8.0] — 2026-08-22
 
 ### Added
@@ -503,6 +570,7 @@ First release.
   `embedder=` callable instead.
 - Not an eval runner. It audits the dataset that eval runners consume.
 
+[0.9.0]: https://github.com/BhagyasriUddandam/evallint/releases/tag/v0.9.0
 [0.8.0]: https://github.com/BhagyasriUddandam/evallint/releases/tag/v0.8.0
 [0.7.0]: https://github.com/BhagyasriUddandam/evallint/releases/tag/v0.7.0
 [0.6.0]: https://github.com/BhagyasriUddandam/evallint/releases/tag/v0.6.0

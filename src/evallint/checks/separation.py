@@ -33,9 +33,17 @@ WHY THESE ESTIMATORS AND NOT THE OBVIOUS ONES
 from __future__ import annotations
 
 import math
+import random
+from collections.abc import Sequence
 
 __all__ = [
     "ALPHA",
+    "COHENS_G_BANDS",
+    "HALDANE_CORRECTION",
+    "cohens_g",
+    "holm_adjust",
+    "mcnemar_odds_ratio",
+    "paired_bootstrap_difference",
     "EXACT_TEST_MAX_N",
     "NORMAL_APPROX_MIN_DISCORDANT",
     "Z_80_POWER",
@@ -208,3 +216,153 @@ def minimum_detectable_effect(
     if n <= 0 or p_discordant <= 0:
         return 0.0
     return (z_alpha + z_beta) * math.sqrt(p_discordant / n)
+
+
+# ===========================================================================
+# Effect size and multiplicity, for model comparison
+#
+# A p-value says whether a difference is distinguishable from zero. It says
+# nothing about whether the difference is large enough to care about, and the
+# two questions have different answers often enough that reporting only the
+# first is misleading. Everything below exists so a comparison can report both.
+# ===========================================================================
+
+#: Added to each discordant cell when one of them is zero, so the odds ratio is
+#: finite. Haldane-Anscombe. Applying it is disclosed in the result, because it
+#: biases the estimate towards 1 and a reader must know it happened.
+HALDANE_CORRECTION = 0.5
+
+#: Cohen's conventional bands for g. Conventions, not derived quantities.
+COHENS_G_BANDS = ((0.05, "small"), (0.15, "medium"), (0.25, "large"))
+
+
+def mcnemar_odds_ratio(
+    b: int, c: int, z: float = Z_95
+) -> tuple[float | None, tuple[float, float] | None, bool]:
+    """Odds ratio for a paired binary comparison, with a log-scale interval.
+
+    Args:
+        b: cases the first model passed and the second failed.
+        c: cases the second model passed and the first failed.
+
+    Returns (odds_ratio, interval, correction_applied). The ratio is c/b, so
+    values above 1 favour the second model.
+
+        log(OR) +- z * sqrt(1/b + 1/c)
+
+    Returns (None, None, False) when there is no discordance at all: two models
+    that never disagree have no odds ratio, and reporting 1.0 would claim
+    demonstrated equivalence from an absence of data.
+
+    When exactly one cell is zero the ratio is infinite, so the Haldane
+    correction is applied and flagged. That biases the estimate towards 1, which
+    is the conservative direction but must be disclosed.
+    """
+    if b < 0 or c < 0:
+        raise ValueError(f"discordant counts must be non-negative, got {b}, {c}")
+    if b == 0 and c == 0:
+        return (None, None, False)
+
+    corrected = b == 0 or c == 0
+    b_adj = b + HALDANE_CORRECTION if corrected else b
+    c_adj = c + HALDANE_CORRECTION if corrected else c
+
+    ratio = c_adj / b_adj
+    half = z * math.sqrt(1.0 / b_adj + 1.0 / c_adj)
+    log_ratio = math.log(ratio)
+    return (
+        ratio,
+        (math.exp(log_ratio - half), math.exp(log_ratio + half)),
+        corrected,
+    )
+
+
+def cohens_g(b: int, c: int) -> tuple[float | None, str]:
+    """Cohen's g, the effect size for a paired binary comparison.
+
+        g = | b / (b + c) - 0.5 |
+
+    It measures how lopsided the discordant cases are, which is the only place
+    information about a difference lives in paired binary data. Independent of
+    how many cases both models got right, so a g of 0.4 means the same thing on
+    an easy set and a hard one -- unlike the raw difference in pass rates, which
+    shrinks as concordance grows.
+
+    Returns (None, reason) when there is no discordance.
+    """
+    total = b + c
+    if total == 0:
+        return (None, "undefined: the two models never disagreed on any case")
+    g = abs(b / total - 0.5)
+    band = "negligible"
+    for threshold, name in COHENS_G_BANDS:
+        if g >= threshold:
+            band = name
+    return (g, f"{band} by Cohen's conventional bands (0.05/0.15/0.25)")
+
+
+def paired_bootstrap_difference(
+    outcomes: Sequence[tuple[bool, bool]],
+    *,
+    resamples: int = 2000,
+    level: float = Z_95,
+    seed: int = 0,
+    confidence: float = 0.95,
+) -> tuple[float, tuple[float, float]] | None:
+    """Percentile bootstrap interval for a paired difference in pass rate.
+
+    Resamples CASES, not observations. That is the whole point: the two models
+    were scored on the same cases, so a bootstrap that drew each model's results
+    independently would destroy the pairing and produce an interval that is too
+    wide. Each resample keeps a case's two outcomes together.
+
+    Args:
+        outcomes: one (first_passed, second_passed) pair per case.
+
+    Returns (delta, (lo, hi)) with delta positive when the SECOND model did
+    better, or None when there are too few cases to resample meaningfully.
+    """
+    n = len(outcomes)
+    if n < 10:
+        return None
+    rng = random.Random(seed)
+    deltas = []
+    for _ in range(resamples):
+        first = second = 0
+        for _ in range(n):
+            a, b = outcomes[rng.randrange(n)]
+            first += a
+            second += b
+        deltas.append((second - first) / n)
+    deltas.sort()
+    tail = (1.0 - confidence) / 2.0
+    lo = deltas[int(tail * resamples)]
+    hi = deltas[min(resamples - 1, int((1.0 - tail) * resamples))]
+    observed = (
+        sum(b for _, b in outcomes) - sum(a for a, _ in outcomes)
+    ) / n
+    return (observed, (lo, hi))
+
+
+def holm_adjust(p_values: Sequence[float]) -> list[float]:
+    """Holm step-down adjustment for multiple comparisons.
+
+    Comparing four models is six pairwise tests, and at alpha = 0.05 the chance
+    of at least one false positive among six independent tests is about 26%.
+    Reporting six raw p-values invites exactly that mistake.
+
+    Holm rather than Bonferroni: it controls the same family-wise error rate
+    while being uniformly more powerful, so nothing is lost by preferring it.
+    Adjusted values are made monotone in the original ordering, as the procedure
+    requires.
+    """
+    m = len(p_values)
+    if m == 0:
+        return []
+    order = sorted(range(m), key=lambda i: p_values[i])
+    adjusted = [0.0] * m
+    running = 0.0
+    for rank, index in enumerate(order):
+        running = max(running, (m - rank) * p_values[index])
+        adjusted[index] = min(1.0, running)
+    return adjusted

@@ -17,6 +17,7 @@ The four checks:
     LeakageCheck          cases whose expected answer is in their own input
     GroundTruthCheck      cases whose reference may be under-specified
     EvaluatorReliability  whether the GRADER itself is trustworthy
+    compare_models        paired statistical comparison of two or more models
     RedundancyCheck       redundancy at five levels, and scenario weighting
     DuplicateCheck        near-duplicate cases via embedding similarity
                           (needs the optional `evallint[embeddings]` extra, or
@@ -36,6 +37,7 @@ import logging
 from importlib.metadata import PackageNotFoundError, version
 
 from .checks import (
+    compare_models,
     krippendorff_alpha,
     mcnemar_exact_p,
     minimum_detectable_effect,
@@ -112,6 +114,7 @@ __all__ = [
     # scorer / embedder contracts
     "Embedder",
     "Scorer",
+    "compare_models",
     "krippendorff_alpha",
     "mcnemar_exact_p",
     "minimum_detectable_effect",

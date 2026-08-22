@@ -26,6 +26,50 @@ reference answer and grader before blaming difficulty), and `inverted` (a *weake
 passed where a stronger one failed — usually a broken reference answer, and worth more
 than either).
 
+**Model comparison, paired and honest about it.** Cases are paired across
+models, so the tests are paired — only the *discordant* cases carry information
+about which model is better, and independent-sample tests would throw the
+pairing away:
+
+```python
+from evallint import compare_models
+print(compare_models({"A": a_outcomes, "B": b_outcomes}).render())
+```
+
+```
+A: 87.1% (871/1000, 95% CI 84.9%-89.0%)
+B: 88.4% (884/1000, 95% CI 86.3%-90.2%)
+
+A 87.1% vs B 88.4% — difference +1.3 percentage points
+95% CI (paired bootstrap) [+0.1, +2.4] pp
+Statistical significance: McNemar exact p=0.041, on 35 discordant of 1000 cases
+Effect size: Cohen's g 0.19 (medium), odds ratio 2.18
+Practical significance: NO. The difference is real but smaller than your 2.0%
+threshold, so it is detectable without being worth acting on.
+```
+
+**Statistical and practical significance are different questions**, and the
+verdict is a 2×2 rather than a p-value:
+
+| | effect ≥ threshold | effect < threshold |
+|---|---|---|
+| **significant** | real and meaningful | real but too small to act on |
+| **not significant** | **underpowered** | no meaningful difference |
+
+`underpowered` is the cell people misread as "no difference": the eval saw an
+effect worth caring about and *could not resolve it*. The answer is more cases,
+not a conclusion. And `no_information` is separate again — two models that never
+disagreed tell you nothing, which is not evidence of equivalence.
+
+**You set the practical threshold.** The 2pp default is a placeholder with no
+derivation, is labelled as one, and appears in every result.
+
+Three effect sizes, because the obvious one is misleading alone: the **risk
+difference** shrinks as models agree more, so the same disagreement looks smaller
+on an easy eval — while **Cohen's g** and the **odds ratio** do not. With more
+than two models, **Holm-adjusted** p-values are reported: six pairwise tests at
+α=0.05 carry a ~26% chance of at least one false positive.
+
 **Evaluator reliability — is the grader itself trustworthy?** Every other check
 audits the dataset. This one audits the judge, which is the one place an LLM
 judge is legitimately involved: it is the *object* of measurement, not an oracle.
@@ -723,7 +767,7 @@ runner.
 ## Development
 
 ```bash
-uv run pytest    # 531 tests
+uv run pytest    # 564 tests
 ```
 
 Every check is tested both ways: it must **fire on known-bad input** and **stay quiet on

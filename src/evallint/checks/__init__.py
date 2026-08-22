@@ -9,7 +9,11 @@ from .discrimination import (
     ScorerError,
 )
 from .separation import (
+    cohens_g,
+    holm_adjust,
     mcnemar_exact_p,
+    mcnemar_odds_ratio,
+    paired_bootstrap_difference,
     minimum_detectable_effect,
     paired_difference,
     wilson_interval,
@@ -33,6 +37,12 @@ from .reliability_stats import (
     spearman_rho,
 )
 from .leakage import LeakageCheck
+from .model_comparison import (
+    ComparisonReport,
+    ModelSummary,
+    PairComparison,
+    compare_models,
+)
 from .redundancy import (
     CompareFields,
     RedundancyCheck,
@@ -54,7 +64,10 @@ __all__ = [
     "EvaluatorReliability",
     "GroundTruthCheck",
     "JudgeObservation",
+    "ComparisonReport",
     "MetricResult",
+    "ModelSummary",
+    "PairComparison",
     "ReliabilityReport",
     "LeakageCheck",
     "RedundancyCheck",
@@ -82,4 +95,10 @@ __all__ = [
     "krippendorff_alpha",
     "pearson_r",
     "spearman_rho",
+    # model comparison
+    "cohens_g",
+    "compare_models",
+    "holm_adjust",
+    "mcnemar_odds_ratio",
+    "paired_bootstrap_difference",
 ]
