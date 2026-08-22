@@ -4,6 +4,25 @@ All notable changes to this project are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.1.1] — 2026-08-22
+
+Documentation only. No code changes, so 0.1.0 remains functionally identical --
+but a published PyPI description can never be edited, so correcting it requires
+a release.
+
+### Fixed
+- The README claimed **124 tests**; there are 269.
+- The roadmap listed "Config file for thresholds" as a future v2+ item while the
+  same README documented the config file as shipped, two sections earlier. It has
+  been implemented since 0.1.0. Replaced with the multi-turn limitation, which is
+  real and not implemented: one case is one input string, so a conversational set
+  like MT-Bench cannot load at all.
+- The core install was described as **~29 MB**; measured from the published wheel
+  it is 33 MB.
+- "Only `id` and `input` are required" was wrong: `id` is optional and generated
+  as `case_1`, `case_2`... when absent. Only `input` is required.
+- The source-tree listing omitted `mapping.py` and `config.py`.
+
 ## [0.1.0] — 2026-08-21
 
 First release.

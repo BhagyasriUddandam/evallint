@@ -45,7 +45,7 @@ perfectly measurable; in a 20-case set a 5% class has one.
 Requires Python 3.12+.
 
 ```bash
-pip install evallint                # core: imbalance + stats, ~29 MB installed
+pip install evallint                # core: imbalance + stats, ~33 MB installed
 pip install 'evallint[embeddings]'  # adds the duplicate check (pulls torch)
 ```
 
@@ -237,9 +237,9 @@ With `--json`, the decision is in the payload too, so a consumer never has to re
 The explanation goes to **stderr**, so `evallint --json ... > report.json` still produces a
 clean file.
 
-Accepts `.jsonl`, `.ndjson`, `.json`, and `.csv`. Only `id` and `input` are required;
-`expected` and `label` are optional, and unrecognised fields are preserved rather than
-dropped.
+Accepts `.jsonl`, `.ndjson`, `.json`, and `.csv`. Only `input` is required: `id` is
+generated as `case_1`, `case_2`... when absent, `expected` and `label` are optional, and
+unrecognised fields are preserved rather than dropped.
 
 ```json
 {"id": "billing_001", "input": "I was charged twice.", "expected": "Refund the extra.", "label": "billing"}
@@ -416,9 +416,9 @@ more trustworthy than one that doesn't.
   input itself, which inflates scores without measuring capability.
 - **Ambiguous-ground-truth check** — flag cases where the reference answer is one of
   several defensible responses, so a correct model gets marked wrong.
-- **Config file for thresholds.** Five flags is already near the limit of what belongs on
-  a command line. As the check count grows, per-check thresholds should move to an
-  `evallint.toml` with CLI flags as overrides, rather than adding a flag per check.
+- **Multi-turn eval sets.** One case is currently one input string, so a conversational
+  set like MT-Bench (whose prompt is a list of turns) cannot load at all. Supporting it
+  is a schema change, not a mapping one.
 
 Deliberately not planned: a web UI, a database, a hosted service, or becoming an eval
 runner.
@@ -426,7 +426,7 @@ runner.
 ## Development
 
 ```bash
-uv run pytest    # 124 tests
+uv run pytest    # 269 tests
 ```
 
 Every check is tested both ways: it must **fire on known-bad input** and **stay quiet on
@@ -439,6 +439,8 @@ tests exercising the real model end to end.
 src/evallint/
   schema.py       EvalCase / EvalSet + validation
   io.py           load JSONL / JSON / CSV
+  mapping.py      your column names -> evallint's fields, always reported
+  config.py       evallint.toml / [tool.evallint] discovery
   checks/
     base.py       Check interface; CheckResult refuses to exist without limitations
     discrimination.py · duplicates.py · imbalance.py
