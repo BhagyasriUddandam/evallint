@@ -10,3 +10,6 @@ scripts/.local_cache.json
 
 # Personal interview prep — local only, never published
 docs/interview-prep.md
+
+# Build logs — useful locally, not part of the product
+tasks/
