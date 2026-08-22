@@ -4,6 +4,70 @@ All notable changes to this project are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.8.0] — 2026-08-22
+
+### Added
+- **`EvaluatorReliability`** — measures whether the GRADER is trustworthy.
+  Every other check audits the dataset; this audits the judge, which is the one
+  place an LLM judge is legitimately involved, because it is the object of
+  measurement rather than an oracle.
+
+  Seven measures: intra-judge consistency, inter-judge agreement, position bias,
+  order sensitivity, score variance, binary decision stability, judge
+  correlation.
+
+- **`evallint.checks.reliability_stats`** — Krippendorff's alpha (nominal and
+  interval), Pearson, Spearman, percentile bootstrap intervals. Standard library
+  only. Alpha is used rather than Fleiss' kappa where the data is ragged: a
+  judge that errors on some cases leaves a different number of ratings per item,
+  which Fleiss cannot take.
+
+- **Every result is a `MetricResult`**, carrying metric, value, sample size,
+  interval, interpretation and limitations. A reliability number without its
+  sample size and assumptions is not interpretable, and this module exists to
+  judge the judges.
+
+- **evallint never calls your judges.** `collect_verdicts` and `collect_choices`
+  invoke callables you supply; `analyse` takes plain `JudgeObservation` records
+  and touches no provider. Same contract as the injected scorer.
+
+- 36 exports, up from 33.
+
+### Assumptions are gated, not assumed
+`value: None` with a stated reason is a normal outcome:
+
+      Pearson on a constant series        refused -- r is 0/0, not 0.0
+      Spearman on binary verdicts         refused -- 100% ties
+      alpha with one category in use      refused -- undefined, not 1.0
+      bootstrap from < 10 observations    refused -- resampling its own noise
+      one repeat per item                 intra-judge consistency refused, and
+                                          stated as NOT evidence of consistency
+      ordinal alpha                       refused rather than approximated
+
+Returning 0.0 in those cases would claim the judges were no better than chance;
+returning 1.0 would claim perfection. Both are inventions.
+
+### The demonstration
+Two scoring judges whose values differ by a constant offset:
+
+      Pearson correlation : 0.939
+      Cohen's kappa       : 0.200
+      Krippendorff alpha  : 0.025
+
+A suite reporting only correlation would call them excellent. They agree barely
+above chance. Correlation is not agreement, and both are reported.
+
+### Tests
+32 new, built on judges with KNOWN behaviour so expected values are derivable
+rather than recorded: a deterministic judge must score 1.0 on consistency; a
+coin-flip judge at 5 repeats has P(unanimous) = 2 x 0.5^5 = 0.0625 so must score
+near zero; a judge that always picks the first-presented option must show
+position bias 1.0 and order sensitivity 1.0. Krippendorff's alpha is checked
+against a hand-computed coincidence matrix (alpha = 0.125, with D_o and D_e
+asserted separately).
+
+Not wired into the CLI: its input is judge observations, not a dataset.
+
 ## [0.7.0] — 2026-08-22
 
 ### Added
@@ -439,6 +503,7 @@ First release.
   `embedder=` callable instead.
 - Not an eval runner. It audits the dataset that eval runners consume.
 
+[0.8.0]: https://github.com/BhagyasriUddandam/evallint/releases/tag/v0.8.0
 [0.7.0]: https://github.com/BhagyasriUddandam/evallint/releases/tag/v0.7.0
 [0.6.0]: https://github.com/BhagyasriUddandam/evallint/releases/tag/v0.6.0
 [0.5.0]: https://github.com/BhagyasriUddandam/evallint/releases/tag/v0.5.0

@@ -26,6 +26,54 @@ reference answer and grader before blaming difficulty), and `inverted` (a *weake
 passed where a stronger one failed — usually a broken reference answer, and worth more
 than either).
 
+**Evaluator reliability — is the grader itself trustworthy?** Every other check
+audits the dataset. This one audits the judge, which is the one place an LLM
+judge is legitimately involved: it is the *object* of measurement, not an oracle.
+
+Seven measures: intra-judge consistency, inter-judge agreement, position bias,
+order sensitivity, score variance, decision stability, judge correlation. Using
+Cohen's kappa, Krippendorff's alpha, Pearson/Spearman and percentile bootstrap
+intervals.
+
+```python
+from evallint import EvaluatorReliability, collect_verdicts
+
+obs = collect_verdicts(cases, {"a": judge_a, "b": judge_b}, repeats=3)
+report = EvaluatorReliability().analyse(obs)
+```
+
+evallint never calls your judges — `collect_verdicts` invokes callables *you*
+supply, and `analyse` takes plain records, so the analysis itself touches no
+provider.
+
+**Correlation is not agreement**, and the module exists partly to show that. Two
+judges whose scores differ by a constant offset:
+
+```
+Pearson correlation : 0.939
+Cohen's kappa       : 0.200
+Krippendorff alpha  : 0.025
+```
+
+A suite reporting only correlation would call those judges excellent. They agree
+barely above chance.
+
+**No metric is computed when its assumptions fail.** Each result carries its
+sample size, interval, interpretation and limitations — and `value: None` with a
+stated reason is a normal outcome:
+
+| situation | outcome |
+|---|---|
+| Pearson on a constant series | refused — r is 0/0, *not* 0.0 |
+| Spearman on binary verdicts | refused — 100% ties |
+| alpha where every rating is identical | refused — undefined, *not* 1.0 |
+| bootstrap from 6 observations | refused — resampling its own noise |
+| one repeat per item | intra-judge consistency refused, and stated as **not** evidence of consistency |
+
+**Agreement is still not correctness.** Judges from one model family share their
+blind spots, so correlated error is indistinguishable from reliability. Every
+agreement figure says so.
+
 **Ground-truth quality, seven deterministic detectors plus optional judges.**
 Cases whose reference answer may not be well enough defined for a score against
 it to mean anything: `multiple_valid_answers`, `subjective_question`,
@@ -675,7 +723,7 @@ runner.
 ## Development
 
 ```bash
-uv run pytest    # 499 tests
+uv run pytest    # 531 tests
 ```
 
 Every check is tested both ways: it must **fire on known-bad input** and **stay quiet on

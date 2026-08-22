@@ -17,7 +17,21 @@ from .separation import (
 from .duplicates import DuplicateCheck, Embedder, MissingEmbeddingsError
 from .imbalance import ImbalanceCheck
 from .agreement import cohens_kappa, fleiss_kappa, pairwise_agreement, raw_agreement
+from .evaluator_reliability import (
+    EvaluatorReliability,
+    JudgeObservation,
+    ReliabilityReport,
+    collect_choices,
+    collect_verdicts,
+)
 from .ground_truth import AmbiguityJudge, GroundTruthCheck
+from .reliability_stats import (
+    MetricResult,
+    bootstrap_interval,
+    krippendorff_alpha,
+    pearson_r,
+    spearman_rho,
+)
 from .leakage import LeakageCheck
 from .redundancy import (
     CompareFields,
@@ -37,7 +51,11 @@ __all__ = [
     "Embedder",
     "Finding",
     "ImbalanceCheck",
+    "EvaluatorReliability",
     "GroundTruthCheck",
+    "JudgeObservation",
+    "MetricResult",
+    "ReliabilityReport",
     "LeakageCheck",
     "RedundancyCheck",
     "RedundancyLevel",
@@ -57,4 +75,11 @@ __all__ = [
     "fleiss_kappa",
     "pairwise_agreement",
     "raw_agreement",
+    # evaluator-reliability statistics
+    "bootstrap_interval",
+    "collect_choices",
+    "collect_verdicts",
+    "krippendorff_alpha",
+    "pearson_r",
+    "spearman_rho",
 ]

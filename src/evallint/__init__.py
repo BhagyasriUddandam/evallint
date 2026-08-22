@@ -16,6 +16,7 @@ The four checks:
     ImbalanceCheck        class distribution, imbalance ratio, basic stats
     LeakageCheck          cases whose expected answer is in their own input
     GroundTruthCheck      cases whose reference may be under-specified
+    EvaluatorReliability  whether the GRADER itself is trustworthy
     RedundancyCheck       redundancy at five levels, and scenario weighting
     DuplicateCheck        near-duplicate cases via embedding similarity
                           (needs the optional `evallint[embeddings]` extra, or
@@ -35,6 +36,7 @@ import logging
 from importlib.metadata import PackageNotFoundError, version
 
 from .checks import (
+    krippendorff_alpha,
     mcnemar_exact_p,
     minimum_detectable_effect,
     wilson_interval,
@@ -47,7 +49,9 @@ from .checks import (
     Finding,
     ImbalanceCheck,
     CompareFields,
+    EvaluatorReliability,
     GroundTruthCheck,
+    JudgeObservation,
     LeakageCheck,
     RedundancyCheck,
     RedundancyLevel,
@@ -98,7 +102,9 @@ __all__ = [
     "Finding",
     "ImbalanceCheck",
     "CompareFields",
+    "EvaluatorReliability",
     "GroundTruthCheck",
+    "JudgeObservation",
     "LeakageCheck",
     "RedundancyCheck",
     "RedundancyLevel",
@@ -106,6 +112,7 @@ __all__ = [
     # scorer / embedder contracts
     "Embedder",
     "Scorer",
+    "krippendorff_alpha",
     "mcnemar_exact_p",
     "minimum_detectable_effect",
     "wilson_interval",
