@@ -13,6 +13,8 @@ from __future__ import annotations
 import re
 import subprocess
 import sys
+
+import pytest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -171,3 +173,145 @@ def test_the_readme_documents_the_format_flags() -> None:
     text = README.read_text()
     for flag in ("--format terminal", "--format json", "--format html", "--detail"):
         assert flag in text, f"{flag} is not mentioned in the README"
+
+
+# --------------------------------------------------------------------------
+# The documentation principle: evallint audits the reliability of LLM
+# evaluations, and says what it cannot tell you
+# --------------------------------------------------------------------------
+
+CHECKS_DOC = ROOT / "docs" / "checks.md"
+
+#: The eight headings every check must document. Required, not encouraged: a
+#: check whose assumptions or false negatives are undocumented invites a reader
+#: to treat a heuristic as a measurement.
+REQUIRED_HEADINGS = (
+    "What it measures",
+    "Why it matters",
+    "Methodology",
+    "Assumptions",
+    "Limitations",
+    "Example",
+    "False positives",
+    "False negatives",
+)
+
+#: Claims no method in this package can support. Each was present in the README
+#: before the rewrite; the guard exists so they cannot come back.
+BANNED_CLAIMS = (
+    "silently lie",
+    "silent lie",
+    "bad eval set",
+    "too easy",
+    "proves that",
+    "guarantees that",
+    "detects all",
+    "a good eval",
+)
+
+
+def test_the_readme_states_the_principle() -> None:
+    assert "audits the reliability of LLM evaluations" in README.read_text()
+
+
+def test_the_readme_distinguishes_the_three_qualities() -> None:
+    """Conflating dataset, evaluation and model quality is the most common way
+    to misread the output, so the distinction must be stated, not implied."""
+    text = README.read_text()
+    for phrase in ("Dataset quality", "Evaluation quality", "Model quality"):
+        assert f"**{phrase}**" in text, f"{phrase} is not called out in the README"
+    assert "does not measure it" in text
+
+
+def test_the_readme_has_a_cannot_tell_you_section() -> None:
+    assert "## What evallint cannot tell you" in README.read_text()
+
+
+def test_the_readme_denies_that_a_non_separating_case_is_bad() -> None:
+    """The explicit instruction behind the rewrite, pinned so a future edit
+    cannot quietly reintroduce the verdict."""
+    text = README.read_text()
+    assert "A non-separating case is not a bad case" in text
+    assert "provides limited evidence for model separation" in text
+
+
+@pytest.mark.parametrize("claim", BANNED_CLAIMS)
+def test_unsupportable_claims_are_absent(claim: str) -> None:
+    for doc in (README, CHECKS_DOC):
+        assert claim not in doc.read_text().lower(), (
+            f"{doc.name} contains {claim!r}, which no method in this package "
+            "can support"
+        )
+
+
+def test_every_check_documents_all_eight_headings() -> None:
+    """Each `## n. Name` section must carry every required heading."""
+    import re as _re
+
+    text = CHECKS_DOC.read_text()
+    sections = _re.split(r"\n## (?=\d+\. )", text)[1:]
+    assert len(sections) >= 9, f"expected at least 9 checks, found {len(sections)}"
+
+    problems = []
+    for section in sections:
+        name = section.split("\n", 1)[0].strip()
+        for heading in REQUIRED_HEADINGS:
+            if f"### {heading}" not in section:
+                # False positives / false negatives may be documented together
+                # where the check is not a classifier and neither applies alone.
+                if heading.startswith("False") and (
+                    "### False positives / false negatives" in section
+                ):
+                    continue
+                problems.append(f"{name}: missing '### {heading}'")
+    assert not problems, "\n".join(problems)
+
+
+def test_the_documented_case_classes_match_the_code() -> None:
+    """Regression: the README documented `inverted` for two releases after the
+    0.4.0 redesign renamed it `non_monotonic`, and never mentioned `separating`
+    or `indeterminate` at all. Names now come from the enum."""
+    from evallint.checks import CaseClass
+
+    text = README.read_text() + CHECKS_DOC.read_text()
+    missing = [c.value for c in CaseClass if f"`{c.value}`" not in text]
+    assert not missing, f"case classes absent from the docs: {missing}"
+    assert "`inverted`" not in text, "`inverted` was renamed in 0.4.0"
+
+
+def test_the_precise_terminology_is_used() -> None:
+    text = (README.read_text() + CHECKS_DOC.read_text()).lower()
+    for phrase in (
+        "potential redundancy",
+        "potential leakage",
+        "ground-truth ambiguity",
+        "limited evidence for model separation",
+        "not identifiable",
+    ):
+        assert phrase in text, f"{phrase!r} is not used anywhere in the docs"
+
+
+def test_the_checks_doc_is_linked_from_the_readme() -> None:
+    assert "docs/checks.md" in README.read_text()
+
+
+def test_measured_rates_in_the_checks_doc_match_the_benchmark_baseline() -> None:
+    """The doc quotes precision and recall figures. A stale number there is a
+    false claim about measured performance, which is worse than no number."""
+    import json as _json
+
+    baseline = _json.loads(
+        (ROOT / "benchmarks" / "results" / "test.json").read_text()
+    )
+    text = CHECKS_DOC.read_text()
+    for detector, metric, claimed in (
+        ("leakage", "precision", "0.667"),
+        ("ambiguous_references", "recall", "0.667"),
+        ("class_imbalance", "recall", "0.667"),
+    ):
+        actual = baseline["detectors"][detector]["confusion"][metric]
+        assert f"{actual:.3f}" == claimed, (
+            f"{detector} {metric} is now {actual}, but docs/checks.md quotes "
+            f"{claimed}; update the doc"
+        )
+        assert claimed in text

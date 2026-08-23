@@ -1,313 +1,103 @@
 # evallint
 
-**Audits LLM eval datasets for the flaws that make evaluations silently lie to you.**
+**evallint audits the reliability of LLM evaluations.**
 
-Everyone tests their model. Almost nobody tests whether their test set is any good.
+Everyone tests their model. Almost nobody tests whether the *measurement* can
+support the conclusion they draw from it.
 
 ## The problem
 
-A bad eval set doesn't fail loudly — it returns a number, and the number looks fine.
-Suppose a 20-case support-triage eval reports 85%: if 14 of those cases are billing
-questions, three of them are the same "I was charged twice" question reworded, and most
-are easy enough that any competent model passes, then that 85% is mostly measuring one
-scenario, counted several times, on cases that can't tell a strong model from a weak one.
+An unreliable evaluation does not fail loudly — it returns a number, and the
+number looks fine.
 
-The model looks fine and ships. Production disagrees. Nothing in the eval was wrong
-enough to notice — which is exactly why it needs auditing separately from the model.
+Suppose a 20-case support-triage eval reports 85%. If 14 of those cases carry one
+label, three are the same question reworded, and most produce the same verdict
+from every model you compared, then that 85% rests on fewer independent
+observations than the case count suggests. Whether that is a problem depends on
+what you wanted to learn — but you cannot tell from the 85%.
 
-## What it checks (v1)
+evallint measures the properties of the evaluation that determine what its number
+can and cannot support. It does not tell you the eval is bad. It tells you what
+was observed, what was inferred and on what threshold, and what was never looked
+at.
 
-**Discrimination failure.** Runs each case against two or more models of known differing
-capability and flags cases where every model produces the same verdict. Those cases carry
-no evidence about which model is better, so an eval with 200 cases where 140 don't
-discriminate is really a 60-case eval wearing a 200-case costume. Results split into
-`ceiling` (every model passes — too easy), `floor` (every model fails — check the
-reference answer and grader before blaming difficulty), and `inverted` (a *weaker* model
-passed where a stronger one failed — usually a broken reference answer, and worth more
-than either).
+## Three different things
 
-**Reproducibility — does the eval answer the same twice, and why not?** Three
-sources of instability, reported **separately and never summed**, because they
-need different fixes:
+Conflating these is the most common way to misread this tool.
 
-| source | isolated by | the fix |
+| | What it is | Needs | evallint |
+|---|---|---|---|
+| **Dataset quality** | Properties of the eval *file*: potential redundancy, class distribution, potential leakage, ground-truth ambiguity. | The file alone | **measures it** |
+| **Evaluation quality** | Properties of the *measurement procedure*: can it separate the models you compared, is the grader reproducible, does the number come back the same twice, is the comparison powered. | Model runs, judges, or repeated runs | **measures it** |
+| **Model quality** | How good the model is. | An evaluation you already trust | **does not measure it** |
+
+The dependency runs one way. Dataset findings bound what evaluation quality can
+be; evaluation quality bounds what you can conclude about the model. **Nothing
+here tells you a model is good, and nothing here tells you an eval is good.**
+
+## What it measures
+
+Nine analyses. Four run from the file with no model, no network and no API key;
+five need something the file cannot supply, and report **NOT ASSESSED** when it
+is absent — which is not the same as passing.
+
+### Dataset quality — runs from the file
+
+| Analysis | Reports | Tier |
 |---|---|---|
-| model stochasticity | ≥2 runs, judge held fixed | lower temperature, or more repeats |
-| evaluator stochasticity | ≥2 judges on the *same* run | fix the grader — re-running won't help |
-| dataset sampling | bootstrap over cases in one run | add cases — re-running won't help |
+| **Potential redundancy** | near-copy clusters at five levels, each cluster's share of the aggregate | observed / heuristic |
+| **Class distribution** | largest-to-smallest ratio, classes too small for a stable per-class accuracy | observed |
+| **Potential leakage** | seven deterministic detectors for an answer reachable from its own prompt | heuristic |
+| **Ground-truth ambiguity** | seven detectors for references that do not pin down one answer | heuristic |
 
-```python
-from evallint import analyse_reproducibility, RunOutcome
-print(analyse_reproducibility(outcomes).render())
-```
+### Evaluation quality — needs model runs, judges, or repeated runs
 
-A single "variance" number would destroy the only actionable information in the
-measurement. When the design can't separate two sources, the analyser says
-`not identifiable` rather than attributing the noise to one of them — one judge
-gives *unidentifiable* evaluator variance, not zero.
-
-**Aggregate stability and per-case stability are different things**, and the
-divergence is the finding. This eval has an aggregate standard deviation of
-**exactly zero** while **100% of its verdicts flip** between runs:
-
-```
-WARNING: the headline score is stable (sd 0.000) while 100% of individual
-verdicts flip between runs. Independent flips cancel in an average, so this is
-a coincidence rather than reproducibility, and it will not survive a change of
-model.
-```
-
-Also reports **model ranking stability** — the modal ranking's share of runs,
-Kendall's W, and which model pairs swapped order. Three models two points apart
-produce a different ranking most runs; the analyser says so instead of reporting
-whichever order this run happened to give.
-
-**Redundancy-adjusted coverage — raw cases versus distinct scenarios.** An eval
-advertising 500 cases may contain 312 scenarios, and an averaged score gives every
-case equal weight, so a scenario appearing eight times counts eight times.
-
-```python
-from evallint import estimate_effective_size
-print(estimate_effective_size(eval_set).render())
-```
-
-```
-Raw cases: 500
-Semantic clusters: 396
-Large clusters (>= 3 cases): 27
-Potential redundancy: 21%
-Redundancy-adjusted scenario coverage: ~396 distinct scenarios
-                                       (estimate; plausible range 396-500)
-Design effect: 1.26 — intervals computed on 500 cases are roughly 1.12x too narrow
-
-THIS IS AN ESTIMATE, NOT A STATISTICAL EFFECTIVE SAMPLE SIZE.
-```
-
-**That last line is load-bearing.** Kish's effective sample size reduces to
-exactly the cluster count when each case is weighted by the inverse of its
-cluster size — but that reduction holds *because the weighting assumes
-within-cluster correlation of 1*. Two paraphrases are not perfectly redundant: a
-model can pass one and fail the other. So the reduction is an assumption, not a
-derivation, and the result is reported as a **bracket**:
-
-| bound | assumes |
-|---|---|
-| cluster count (headline) | cases in a cluster are perfectly redundant, ρ = 1 |
-| raw case count | every case is independent, ρ = 0 |
-
-The truth is between. The lower bound leads because it is the one that cannot
-flatter the eval.
-
-The **design effect** is the actionable output: it is the factor by which
-intervals computed on the raw count are too narrow. A `compare_models` interval
-should be widened by roughly its square root when the eval has clusters —
-every interval in this library assumes independent cases.
-
-Threshold sensitivity is reported too, so you can see whether the estimate is
-threshold-dependent for *your* data rather than assuming.
-
-**Model comparison, paired and honest about it.** Cases are paired across
-models, so the tests are paired — only the *discordant* cases carry information
-about which model is better, and independent-sample tests would throw the
-pairing away:
-
-```python
-from evallint import compare_models
-print(compare_models({"A": a_outcomes, "B": b_outcomes}).render())
-```
-
-```
-A: 87.1% (871/1000, 95% CI 84.9%-89.0%)
-B: 88.4% (884/1000, 95% CI 86.3%-90.2%)
-
-A 87.1% vs B 88.4% — difference +1.3 percentage points
-95% CI (paired bootstrap) [+0.1, +2.4] pp
-Statistical significance: McNemar exact p=0.041, on 35 discordant of 1000 cases
-Effect size: Cohen's g 0.19 (medium), odds ratio 2.18
-Practical significance: NO. The difference is real but smaller than your 2.0%
-threshold, so it is detectable without being worth acting on.
-```
-
-**Statistical and practical significance are different questions**, and the
-verdict is a 2×2 rather than a p-value:
-
-| | effect ≥ threshold | effect < threshold |
+| Analysis | Reports | Tier |
 |---|---|---|
-| **significant** | real and meaningful | real but too small to act on |
-| **not significant** | **underpowered** | no meaningful difference |
+| **Model separation** | per case: `ceiling`, `floor`, `separating`, `non_monotonic`, `indeterminate` | estimated |
+| **Evaluator reliability** | is the *grader* reproducible — kappa, alpha, position bias, self-consistency | estimated |
+| **Statistical comparison** | paired tests, effect size, and what difference this eval could have detected | estimated |
+| **Redundancy-adjusted coverage** | distinct scenarios as a bracket, and how much to widen your intervals | heuristic |
+| **Reproducibility** | three variance sources, reported separately and never summed | estimated |
 
-`underpowered` is the cell people misread as "no difference": the eval saw an
-effect worth caring about and *could not resolve it*. The answer is more cases,
-not a conclusion. And `no_information` is separate again — two models that never
-disagreed tell you nothing, which is not evidence of equivalence.
+**Every analysis is documented under eight headings** — what it measures, why it
+matters, methodology, assumptions, limitations, example, false positives, false
+negatives — in **[docs/checks.md](docs/checks.md)**. Measured false-positive and
+false-negative rates are given there with their source.
 
-**You set the practical threshold.** The 2pp default is a placeholder with no
-derivation, is labelled as one, and appears in every result.
+## Precise language, on purpose
 
-Three effect sizes, because the obvious one is misleading alone: the **risk
-difference** shrinks as models agree more, so the same disagreement looks smaller
-on an easy eval — while **Cohen's g** and the **odds ratio** do not. With more
-than two models, **Holm-adjusted** p-values are reported: six pairwise tests at
-α=0.05 carry a ~26% chance of at least one false positive.
+The output says `potential redundancy`, `potential leakage`, `ground-truth
+ambiguity`, `provides limited evidence for model separation`, `not identifiable`,
+`unresolved`. That is not hedging — each phrase is narrower than the verdict it
+replaces, and the narrower claim is the one the method supports.
 
-**Evaluator reliability — is the grader itself trustworthy?** Every other check
-audits the dataset. This one audits the judge, which is the one place an LLM
-judge is legitimately involved: it is the *object* of measurement, not an oracle.
+Two consequences worth stating plainly:
 
-Seven measures: intra-judge consistency, inter-judge agreement, position bias,
-order sensitivity, score variance, decision stability, judge correlation. Using
-Cohen's kappa, Krippendorff's alpha, Pearson/Spearman and percentile bootstrap
-intervals.
+**A non-separating case is not a bad case.** A case where every model gives the
+same verdict contributes nothing to *which model is better*. It may still be a
+deliberate regression guard, a coverage case, or a floor case whose reference
+answer is wrong. The finding says "provides limited evidence for model
+separation", and for ceiling cases it is INFO rather than WARNING.
 
-```python
-from evallint import EvaluatorReliability, collect_verdicts
+**No check declares a case invalid.** Every finding carries a recommended action,
+and none of them is "delete".
 
-obs = collect_verdicts(cases, {"a": judge_a, "b": judge_b}, repeats=3)
-report = EvaluatorReliability().analyse(obs)
-```
+## Evidence tiers
 
-evallint never calls your judges — `collect_verdicts` invokes callables *you*
-supply, and `analyse` takes plain records, so the analysis itself touches no
-provider.
+Every finding in the unified report carries one, and the rule is enforced in
+code rather than documented:
 
-**Correlation is not agreement**, and the module exists partly to show that. Two
-judges whose scores differ by a constant offset:
-
-```
-Pearson correlation : 0.939
-Cohen's kappa       : 0.200
-Krippendorff alpha  : 0.025
-```
-
-A suite reporting only correlation would call those judges excellent. They agree
-barely above chance.
-
-**No metric is computed when its assumptions fail.** Each result carries its
-sample size, interval, interpretation and limitations — and `value: None` with a
-stated reason is a normal outcome:
-
-| situation | outcome |
-|---|---|
-| Pearson on a constant series | refused — r is 0/0, *not* 0.0 |
-| Spearman on binary verdicts | refused — 100% ties |
-| alpha where every rating is identical | refused — undefined, *not* 1.0 |
-| bootstrap from 6 observations | refused — resampling its own noise |
-| one repeat per item | intra-judge consistency refused, and stated as **not** evidence of consistency |
-
-**Agreement is still not correctness.** Judges from one model family share their
-blind spots, so correlated error is indistinguishable from reliability. Every
-agreement figure says so.
-
-**Ground-truth quality, seven deterministic detectors plus optional judges.**
-Cases whose reference answer may not be well enough defined for a score against
-it to mean anything: `multiple_valid_answers`, `subjective_question`,
-`missing_criteria`, `ambiguous_wording`, `reference_inconsistency`,
-`underspecified_reference`, `multiple_interpretations`.
-
-Each finding reports **case_id, ambiguity_type, evidence, confidence and a
-recommended action** — and no recommended action is ever "delete". At dataset
-level: the proportion potentially ambiguous, judge agreement, and the set of
-cases needing human review.
-
-**A subjective case is not an invalid case.** "Is this response helpful?" has no
-single right answer, and an eval of such questions measures preference, which is
-a real thing to measure. The finding says the score will be *grader-dependent* —
-information for reading the number, not a defect to remove.
-
-**Judges are optional, and the design distrusts them.** No LLM analysis happens
-unless you pass judges explicitly, and evallint never calls a provider — you
-supply the callable, as with the scorer:
-
-```python
-GroundTruthCheck(judges={"a": my_judge_a, "b": my_judge_b}).run(eval_set)
-```
-
-- **One judge** → findings capped at LOW confidence and labelled
-  `single_judge_uncorroborated`. One model's opinion about ambiguity is an opinion.
-- **Two or more** → only cases they *agree* on are reported. Cases they dispute
-  are routed to human review, because disagreement is evidence the case is hard
-  to adjudicate, not evidence about its answer.
-- Agreement is reported with **Fleiss' kappa**, never raw agreement alone — on a
-  skewed set two judges agree most of the time by accident. When every judge
-  gives every case the same verdict, kappa is **undefined** and reported as such
-  rather than as 1.0.
-- **Agreement is not correctness.** Judges from one model family share their
-  blind spots, so correlated error looks exactly like reliability.
-
-**Leakage, seven deterministic detectors.** A case whose answer can be read off
-its own prompt inflates the score while measuring reading. **No LLM judge is used
-at any confidence level** — every detector is a deterministic function of the text:
-
-| detector | confidence | catches |
+| Tier | What it is | Confidence |
 |---|---|---|
-| `expected_in_input` | moderate | the reference answer verbatim in the input |
-| `label_in_input` | moderate | the class label as a word in the input |
-| `explicit_reveal` | **high** | "the correct answer is X" where X *is* the answer |
-| `answer_in_instructions` | **high** | the answer in the preamble, before the item marker |
-| `metadata_leak` | moderate | the answer in a metadata field that isn't an answer field |
-| `fewshot_target` | **high** | the evaluation target inside the case's own demonstrations |
-| `high_overlap` | low | answer/input token overlap — **opt-in**, see below |
+| `observed` | a census of the data — counting, not inference | **must be absent**: a count is exact |
+| `heuristic` | a chosen threshold with no sampling theory behind it | **required**: else it reads as fact |
+| `estimated` | a statistical estimate with an interval and stated assumptions | the interval |
 
-Confidence is **ordinal with a stated basis, not a probability**. HIGH means the
-evidence is hard to explain innocently. MODERATE means the observation is certain
-but its interpretation is not — the answer appearing in the input is exactly what
-extractive QA looks like. Only HIGH warns; the rest are informational, because a
-check that warns about legitimate task design is a check people switch off.
+Constructing an `observed` finding with a confidence raises `ValueError`, and so
+does a `heuristic` one without. There is **no overall quality score** in any
+output format, and two tests exist to make adding one fail.
 
-Every finding carries **case ID, type, evidence, confidence and an explanation**,
-and the wording is always "potential leakage" — never a verdict that a case is
-invalid.
-
-`--leakage-overlap` enables the seventh detector, which is off by default for a
-measured reason: on GSM8K, answer/input overlap reaches **100% with no leakage at
-all**, because reference answers there are worked solutions that restate the
-question. A planted leak scores the same, so no threshold separates them.
-
-Validated at **zero false positives across GSM8K, MMLU, TruthfulQA and
-HellaSwag** — a check that fires on real public datasets is worse than no check.
-
-**Semantic redundancy, at five levels.** Only one of the five uses a cosine
-threshold, which is deliberate — a single tuned number should not be the ground
-truth for whether two cases are the same. `exact`, `normalized` (identical after
-folding case, spacing and punctuation) and `template` (identical after masking
-numbers and quoted spans) are **deterministic comparisons with nothing to tune**.
-`scenario` and `semantic` use embeddings and are reported as heuristic. So
-`DUPLICATE` and `SIMILAR` are separate claims, not one score.
-
-Measured on the reference model, that separation earns its place: real
-paraphrases span cosine **0.60 to 0.86**, so no single threshold has both good
-precision and good recall — while `"What is 5 plus 3"` and `"What is 12 plus 7"`
-score only **0.717** and are missed by the semantic level entirely, yet caught
-exactly by the template level. Each run also reports how many similar pairs it
-would find at 0.80/0.85/0.90/0.95, so you can see whether the threshold is
-load-bearing for *your* data.
-
-Comparison uses `input` + `expected` by default: the same question with two
-different reference answers is a ground-truth contradiction, not a duplicate, and
-collapsing them would hide it. `--compare input` restores input-only matching.
-The three deterministic levels need no model, so this runs in a core install.
-
-What it reports is **how much weight one scenario carries in an averaged score** —
-a fact about arithmetic, not a judgement. Consistency tests, template families and
-regression suites are all legitimate reasons to repeat a scenario, so no finding
-here calls a case invalid.
-
-**Class imbalance and basic stats.** Reports class distribution, imbalance ratio, and
-per-class counts. Matters because aggregate accuracy hides failure on rare classes: a
-model that handles the 70% majority class well and everything else badly still scores
-~70% overall. A class becomes unmeasurable two independent ways — its **share** is too
-small to move the aggregate, or its **count** is too small for its own accuracy to mean
-anything — so both are checked. In a 10,000-case set a 1% class still has 100 cases and is
-perfectly measurable; in a 20-case set a 5% class has one.
-
-**Label leakage.** Flags cases whose `expected` answer appears verbatim in their own
-`input`. Those cases don't need the capability under test — the answer is sitting in the
-prompt — so they inflate the score while measuring reading. Deliberately quiet: token
-overlap between an answer and its question was measured and **discarded as a signal**,
-because on GSM8K it reaches 1.00 with no leakage at all (the reference answer restates the
-question). Short answers and small closed label vocabularies are skipped, and a set where
-*most* cases contain their answer is reported once as probable extractive QA rather than
-as hundreds of warnings. Zero false positives across GSM8K, MMLU, TruthfulQA and HellaSwag.
 
 ## Install
 
@@ -736,7 +526,8 @@ def score(case, model) -> bool:
     """Your code, your provider. True if `model` got `case` right."""
     return grade(my_client.complete(model=model, prompt=case.input), case.expected)
 
-# models ordered WEAKEST FIRST — that ordering is what makes inversion detectable
+# models ordered WEAKEST FIRST — the declared order is what makes a
+# non-monotonic case detectable at all
 result = DiscriminationCheck(score, ["small-model", "large-model"]).run(load("evalset.jsonl"))
 print(result.summary, result.stats["non_discriminating_share"])
 ```
@@ -757,7 +548,7 @@ result.stats["n_measured"]          # the denominator the other figures actually
 ```
 
 On the bundled 20-case example, three repeats found **8 of 20 verdicts (40%)
-non-reproducible**, and only one of the inversions a single run reported survived all
+non-reproducible**, and only one of the non-monotonic cases a single run reported survived all
 three. The default `repeats=1` keeps cost down but cannot detect this at all — which is
 stated in the check's own limitations.
 
@@ -873,7 +664,7 @@ so grading is a numeric comparison nobody has to trust:
 
 98% of a widely-cited reasoning benchmark carries no evidence about which of those two
 models is better. Both sit at the ceiling: 98.0% and 98.7%. Repeats also killed one of
-the two inversions a single run reported, which is exactly why the check refuses to
+the two non-monotonic cases a single run reported, which is exactly why the check refuses to
 classify unstable cases.
 
 Full write-up, including what it does **not** show: [docs/findings-gsm8k.md](docs/findings-gsm8k.md).
@@ -1002,59 +793,101 @@ What this audit cannot tell you
 
 Two things in that output are deliberate. **Discrimination is listed under "Not run"**
 rather than omitted — the CLI covers three of four checks and says so, because a report
-that quietly covered two thirds of the tool would be the same kind of silent lie this
+that quietly covered two thirds of the tool would be the same kind of unstated gap this
 project exists to catch. And **"What this audit cannot tell you" is not suppressible**;
 there is no `--brief` flag that hides it. A clean report is exactly when a reader is most
 likely to over-trust it.
 
-## What this does NOT do
+## What evallint cannot tell you
 
-- **It is not an eval runner.** It does not execute your eval, call your model, or score
-  responses. It audits the dataset those tools consume.
-- **It does not replace promptfoo, DeepEval, LangSmith, or OpenAI Evals**, and is not
-  trying to. Those run evals; they mostly assume the eval set is sound. evallint checks
-  that assumption. Use it *alongside* them, upstream.
-- **It audits the set, not the model.** Nothing here tells you whether your model is good.
-  A clean evallint report means your eval is capable of measuring something, not that the
-  thing it measured is passing.
-- **It does not tell you what to delete.** Every finding is a prompt to look, not a
-  verdict. Easy cases may be deliberate regression guards; duplicate inputs with different
-  `expected` values may be testing consistency on purpose.
-- **It cannot tell you whether your distribution is *wrong*, only whether it is *uneven*.**
-  If production traffic really is 70% billing, a 70% billing eval may be exactly right.
-- **The thresholds are conventions, not statistics.** `0.85` cosine, `10%` share, `5`
-  cases — all defaults, all configurable, none derived from theory. The duplicate
-  threshold was checked against one 20-case example where duplicates and non-duplicates
-  separate at 0.70 vs 0.81.
-- **Duplicate detection is O(n²)** in time and memory. Fine for a few thousand cases, not
-  for a corpus.
-- **Discrimination depends entirely on the model pair you choose.** Two models closer in
-  capability than you assumed will make a good eval look non-discriminating, and the check
-  cannot tell the difference. It also cannot verify that your "weak" model is actually
-  weaker — it can only flag when the numbers contradict the ordering you declared.
-- **Only four checks.** Ambiguous ground truth is a real problem and
-  are not implemented.
+Grouped by *why*, because the reasons differ in kind. The short version:
+[docs/checks.md](docs/checks.md#part-3--what-evallint-cannot-tell-you) has the
+full list.
 
-This section is a feature. Every check also reports its own limitations at runtime, and
-`CheckResult` raises if constructed without them — "state what you cannot tell the user"
-is enforced by the type, not left to discipline. A tool that states its uncertainty is
-more trustworthy than one that doesn't.
+### Because it is out of scope by design
 
-## Roadmap (v2+)
+- **Whether your model is any good.** evallint audits the measurement, not the
+  thing measured. A clean report means the evaluation is capable of measuring
+  something, not that what it measured is passing.
+- **Whether your eval is "good" or "bad".** No check emits that verdict and no
+  report contains an overall score.
+- **Whether to delete a case.** Every finding is a prompt to look.
+- **It is not an eval runner.** It does not execute your eval, call your model or
+  score responses. It does not replace promptfoo, DeepEval, LangSmith or OpenAI
+  Evals — those run evals and mostly assume the evaluation is sound. evallint
+  checks that assumption, upstream.
 
-- **Ambiguous-ground-truth check** — flag cases where the reference answer is one of
-  several defensible responses, so a correct model gets marked wrong.
+### Because it requires knowing your intent
+
+- **Whether your class distribution is wrong**, only whether it is uneven. If
+  production traffic really is 70% billing, a 70%-billing eval may be right.
+- **Whether redundancy is deliberate.** Consistency tests reuse inputs on
+  purpose; regression suites repeat scenarios that once broke.
+- **Whether a ceiling case should be removed.** It may be a regression guard.
+- **Whether the answer appearing in the prompt is a leak.** For extractive QA,
+  span selection and reading comprehension, it is the task.
+
+### Because the information is not in the data
+
+- **Whether your reference answers are correct** — only whether they are
+  *unambiguous*, which is a different property. A confidently wrong reference
+  passes every check here.
+- **Whether your judge is right** — only whether it is *consistent*. Judges from
+  one model family share their blind spots, so correlated error is
+  indistinguishable from reliability, and only a human-labelled sample separates
+  them.
+- **Whether your eval covers what matters.** Nothing here knows what you failed
+  to test.
+- **Whether a non-separating case is easy or your models are too similar.** The
+  observation is identical either way.
+
+### Because of a stated methodological limit
+
+- **The thresholds are conventions, not statistics.** `0.85` cosine, `10%` share,
+  `5` cases — all defaults, all configurable, none derived from theory. The
+  sensitivity curve across thresholds is published rather than hidden.
+- **Semantic similarity is a heuristic.** Precision at τ=0.85 measured 0.947
+  against author-written labels — precision against *those labels*, not truth.
+- **Paraphrased leakage is invisible** to string matching.
+- **Redundancy detection is O(n²)** in time and memory. Fine for a few thousand
+  cases, not for a corpus.
+- **Model separation depends entirely on the model pair you choose.** Two models
+  closer in capability than you assumed produce cases that look non-separating,
+  and the check cannot tell the difference. It cannot verify your "weak" model is
+  weaker — only flag when the numbers contradict the ordering you declared.
+- **An exact effective sample size** is not available; the coverage estimate is a
+  bracket under a stated assumption.
+
+### Because nobody has looked
+
+Five of the nine analyses need model runs, judges or repeated runs. From a CLI
+they report **NOT ASSESSED**, never an empty pass, and the unified report keeps
+that structurally distinct and never truncates the list.
+
+**This section is a feature.** Every check also reports its own limitations at
+runtime, and `CheckResult` raises if constructed without them — "state what you
+cannot tell the user" is enforced by the type rather than left to discipline.
+
+
+## Roadmap
+
 - **Per-turn analysis.** Schema 2 loads conversations, but the checks read the
   flattened text, so cross-turn leakage is found as overlap within one string
-  rather than attributed to a specific turn. Attributing it is the next step.
+  rather than attributed to a specific turn.
+- **A real-dataset benchmark arm.** The synthetic suite has never caught a bug
+  that real datasets did not catch first, which is the largest gap in evallint's
+  own evidence. See [benchmarks/README.md](benchmarks/README.md).
+- **Coverage of a capability space.** Currently unmeasurable from cases alone,
+  and named here rather than implemented on a guess.
 
-Deliberately not planned: a web UI, a database, a hosted service, or becoming an eval
-runner.
+Deliberately not planned: a web UI, a database, a hosted service, an overall
+quality score, or becoming an eval runner.
+
 
 ## Development
 
 ```bash
-uv run pytest    # 791 tests
+uv run pytest    # 808 tests
 ```
 
 Every check is tested both ways: it must **fire on known-bad input** and **stay quiet on
