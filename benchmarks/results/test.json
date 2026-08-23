@@ -1,0 +1,599 @@
+{
+  "split": "test",
+  "reportable": true,
+  "semantic_level_requested": false,
+  "environment": {
+    "evallint_version": "0.13.0",
+    "python": "3.13.12",
+    "platform": "macOS-26.5.2-arm64-arm-64bit-Mach-O",
+    "machine": "arm64",
+    "processor": "arm"
+  },
+  "detectors": {
+    "exact_duplicates": {
+      "unit": "case pair",
+      "label_basis": "objective: byte-identical input and expected",
+      "n_cases": 20,
+      "confusion": {
+        "tp": 4,
+        "fp": 0,
+        "fn": 0,
+        "tn": 186,
+        "n_items": 190,
+        "precision": 1.0,
+        "recall": 1.0,
+        "false_positive_rate": 0.0,
+        "false_negative_rate": 0.0,
+        "f1": 1.0
+      },
+      "timing": {
+        "seconds_best": 0.000153,
+        "seconds_median": 0.000159,
+        "repeats": 3,
+        "ms_per_item": 0.0076,
+        "python_peak_kib": 12.9,
+        "python_peak_caveat": "tracemalloc only: excludes numpy and torch buffers, so this undercounts the embedding path by orders of magnitude. Comparable between runs, not an absolute footprint."
+      },
+      "near_miss_check": {
+        "description": "four normalised-but-not-exact duplicates must not be clustered at the exact level",
+        "violations": [],
+        "passed": true
+      }
+    },
+    "semantic_duplicates": {
+      "unit": "case pair",
+      "label_basis": "AUTHOR JUDGEMENT: paraphrases of one scenario. A different annotator would draw some of these differently, so precision here is precision against these labels rather than against truth.",
+      "n_cases": 23,
+      "semantic_level_ran": false,
+      "threshold": 0.85,
+      "levels_run": [
+        "exact",
+        "normalized",
+        "template"
+      ],
+      "confusion": {
+        "tp": 0,
+        "fp": 0,
+        "fn": 18,
+        "tn": 235,
+        "n_items": 253,
+        "precision": null,
+        "recall": 0.0,
+        "false_positive_rate": 0.0,
+        "false_negative_rate": 1.0,
+        "f1": null
+      },
+      "timing": {
+        "seconds_best": 0.000129,
+        "seconds_median": 0.000129,
+        "repeats": 3,
+        "ms_per_item": 0.0056,
+        "python_peak_kib": 8.0,
+        "python_peak_caveat": "tracemalloc only: excludes numpy and torch buffers, so this undercounts the embedding path by orders of magnitude. Comparable between runs, not an absolute footprint."
+      },
+      "hard_negative_check": {
+        "description": "three same-topic, different-question cases; any pair among them is a false positive",
+        "false_positives": []
+      },
+      "caveat": "deterministic levels only \u2014 pass --semantic to include the embedding level, which is where recall on paraphrases comes from",
+      "threshold_sensitivity": {}
+    },
+    "class_imbalance": {
+      "unit": "dataset",
+      "label_basis": "arithmetic, against the check's own documented criteria: ratio above 10:1 or a class below a 10% share",
+      "n_datasets": 5,
+      "n_cases_total": 217,
+      "confusion": {
+        "tp": 2,
+        "fp": 0,
+        "fn": 1,
+        "tn": 2,
+        "n_items": 5,
+        "precision": 1.0,
+        "recall": 0.6667,
+        "false_positive_rate": 0.0,
+        "false_negative_rate": 0.3333,
+        "f1": null,
+        "f1_omitted_because": "F1 has no useful interpretation for this category; see benchmarks/metrics.py"
+      },
+      "per_dataset": [
+        {
+          "source": "balanced_even.jsonl",
+          "labelled_imbalanced": false,
+          "flagged": false,
+          "correct": true,
+          "why_labelled": "three equal classes",
+          "summary": "30 cases across 3 classes, imbalance ratio 1.0:1"
+        },
+        {
+          "source": "balanced_mild.jsonl",
+          "labelled_imbalanced": false,
+          "flagged": false,
+          "correct": true,
+          "why_labelled": "mild variation, ratio 1.3:1, every class above 10%",
+          "summary": "31 cases across 3 classes, imbalance ratio 1.3:1"
+        },
+        {
+          "source": "imbalanced_ratio.jsonl",
+          "labelled_imbalanced": true,
+          "flagged": true,
+          "correct": true,
+          "why_labelled": "ratio 20:1 and two classes below 10%",
+          "summary": "45 cases across 3 classes, imbalance ratio 20.0:1"
+        },
+        {
+          "source": "imbalanced_tiny.jsonl",
+          "labelled_imbalanced": true,
+          "flagged": true,
+          "correct": true,
+          "why_labelled": "one class of 1, which cannot produce a stable accuracy",
+          "summary": "61 cases across 3 classes, imbalance ratio 30.0:1"
+        },
+        {
+          "source": "single_class.jsonl",
+          "labelled_imbalanced": true,
+          "flagged": false,
+          "correct": false,
+          "why_labelled": "one class only: no per-class comparison is possible",
+          "summary": "50 cases across 1 classes, imbalance ratio 1.0:1"
+        }
+      ]
+    },
+    "leakage": {
+      "unit": "case",
+      "label_basis": "DEFINITIONAL: the reference answer appears verbatim in the input. This measures implementation, not whether verbatim containment is a good proxy for leakage.",
+      "n_cases": 12,
+      "confusion": {
+        "tp": 4,
+        "fp": 2,
+        "fn": 0,
+        "tn": 6,
+        "n_items": 12,
+        "precision": 0.6667,
+        "recall": 1.0,
+        "false_positive_rate": 0.25,
+        "false_negative_rate": 0.0,
+        "f1": 0.8
+      },
+      "by_detector_type": {
+        "expected_in_input": {
+          "n_flagged": 4,
+          "tp": 4,
+          "fp": 0,
+          "fn": 0,
+          "tn": 8,
+          "n_items": 12,
+          "precision": 1.0,
+          "recall": 1.0,
+          "false_positive_rate": 0.0,
+          "false_negative_rate": 0.0,
+          "f1": 1.0
+        },
+        "label_in_input": {
+          "n_flagged": 2,
+          "tp": 0,
+          "fp": 2,
+          "fn": 4,
+          "tn": 6,
+          "n_items": 12,
+          "precision": 0.0,
+          "recall": 0.0,
+          "false_positive_rate": 0.25,
+          "false_negative_rate": 1.0,
+          "f1": null
+        }
+      },
+      "by_confidence": {
+        "moderate": {
+          "n_flagged": 6,
+          "tp": 4,
+          "fp": 2,
+          "fn": 0,
+          "tn": 6,
+          "n_items": 12,
+          "precision": 0.6667,
+          "recall": 1.0,
+          "false_positive_rate": 0.25,
+          "false_negative_rate": 0.0,
+          "f1": 0.8
+        }
+      },
+      "cumulative_by_confidence": {
+        "moderate_and_above": {
+          "tp": 4,
+          "fp": 2,
+          "fn": 0,
+          "tn": 6,
+          "n_items": 12,
+          "precision": 0.6667,
+          "recall": 1.0,
+          "false_positive_rate": 0.25,
+          "false_negative_rate": 0.0,
+          "f1": 0.8
+        }
+      },
+      "timing": {
+        "seconds_best": 0.000223,
+        "seconds_median": 0.00024,
+        "repeats": 3,
+        "ms_per_item": 0.0186,
+        "python_peak_kib": 11.4,
+        "python_peak_caveat": "tracemalloc only: excludes numpy and torch buffers, so this undercounts the embedding path by orders of magnitude. Comparable between runs, not an absolute footprint."
+      },
+      "near_miss_check": {
+        "n_near_misses": 4,
+        "false_positives_among_them": [
+          "clean_label",
+          "clean_overlap"
+        ]
+      },
+      "missed": []
+    },
+    "ambiguous_references": {
+      "unit": "case",
+      "label_basis": "AUTHOR JUDGEMENT: the reference does not uniquely determine a correct answer. A reasonable annotator could disagree on several. The contradiction pair is the exception -- two different answers to one question is structural, not a matter of opinion.",
+      "n_cases": 15,
+      "confusion": {
+        "tp": 4,
+        "fp": 0,
+        "fn": 2,
+        "tn": 9,
+        "n_items": 15,
+        "precision": 1.0,
+        "recall": 0.6667,
+        "false_positive_rate": 0.0,
+        "false_negative_rate": 0.3333,
+        "f1": 0.8
+      },
+      "by_detector_type": {
+        "missing_criteria": {
+          "n_flagged": 1,
+          "tp": 1,
+          "fp": 0,
+          "fn": 5,
+          "tn": 9,
+          "n_items": 15,
+          "precision": 1.0,
+          "recall": 0.1667,
+          "false_positive_rate": 0.0,
+          "false_negative_rate": 0.8333,
+          "f1": 0.2857
+        },
+        "multiple_valid_answers": {
+          "n_flagged": 1,
+          "tp": 1,
+          "fp": 0,
+          "fn": 5,
+          "tn": 9,
+          "n_items": 15,
+          "precision": 1.0,
+          "recall": 0.1667,
+          "false_positive_rate": 0.0,
+          "false_negative_rate": 0.8333,
+          "f1": 0.2857
+        },
+        "reference_inconsistency": {
+          "n_flagged": 2,
+          "tp": 2,
+          "fp": 0,
+          "fn": 4,
+          "tn": 9,
+          "n_items": 15,
+          "precision": 1.0,
+          "recall": 0.3333,
+          "false_positive_rate": 0.0,
+          "false_negative_rate": 0.6667,
+          "f1": 0.5
+        }
+      },
+      "by_confidence": {
+        "high": {
+          "n_flagged": 3,
+          "tp": 3,
+          "fp": 0,
+          "fn": 3,
+          "tn": 9,
+          "n_items": 15,
+          "precision": 1.0,
+          "recall": 0.5,
+          "false_positive_rate": 0.0,
+          "false_negative_rate": 0.5,
+          "f1": 0.6667
+        },
+        "moderate": {
+          "n_flagged": 1,
+          "tp": 1,
+          "fp": 0,
+          "fn": 5,
+          "tn": 9,
+          "n_items": 15,
+          "precision": 1.0,
+          "recall": 0.1667,
+          "false_positive_rate": 0.0,
+          "false_negative_rate": 0.8333,
+          "f1": 0.2857
+        }
+      },
+      "cumulative_by_confidence": {
+        "high_and_above": {
+          "tp": 3,
+          "fp": 0,
+          "fn": 3,
+          "tn": 9,
+          "n_items": 15,
+          "precision": 1.0,
+          "recall": 0.5,
+          "false_positive_rate": 0.0,
+          "false_negative_rate": 0.5,
+          "f1": 0.6667
+        },
+        "moderate_and_above": {
+          "tp": 4,
+          "fp": 0,
+          "fn": 2,
+          "tn": 9,
+          "n_items": 15,
+          "precision": 1.0,
+          "recall": 0.6667,
+          "false_positive_rate": 0.0,
+          "false_negative_rate": 0.3333,
+          "f1": 0.8
+        }
+      },
+      "timing": {
+        "seconds_best": 0.000126,
+        "seconds_median": 0.00013,
+        "repeats": 3,
+        "ms_per_item": 0.0084,
+        "python_peak_kib": 4.7,
+        "python_peak_caveat": "tracemalloc only: excludes numpy and torch buffers, so this undercounts the embedding path by orders of magnitude. Comparable between runs, not an absolute footprint."
+      },
+      "near_miss_check": {
+        "n_near_misses": 5,
+        "false_positives_among_them": []
+      },
+      "missed": [
+        "amb_list",
+        "amb_subjective"
+      ]
+    },
+    "ceiling_floor_discrimination": {
+      "unit": "case, classified into one of four classes",
+      "label_basis": "OBJECTIVE BY CONSTRUCTION: the scorer is a fixture, so which models pass which case is written down rather than judged",
+      "n_cases": 20,
+      "models": [
+        "weak",
+        "middle",
+        "strong"
+      ],
+      "exact_class_agreement": 1.0,
+      "per_class": {
+        "ceiling": {
+          "tp": 6,
+          "fp": 0,
+          "fn": 0,
+          "tn": 14,
+          "n_items": 20,
+          "precision": 1.0,
+          "recall": 1.0,
+          "false_positive_rate": 0.0,
+          "false_negative_rate": 0.0,
+          "f1": 1.0
+        },
+        "floor": {
+          "tp": 5,
+          "fp": 0,
+          "fn": 0,
+          "tn": 15,
+          "n_items": 20,
+          "precision": 1.0,
+          "recall": 1.0,
+          "false_positive_rate": 0.0,
+          "false_negative_rate": 0.0,
+          "f1": 1.0
+        },
+        "separating": {
+          "tp": 6,
+          "fp": 0,
+          "fn": 0,
+          "tn": 14,
+          "n_items": 20,
+          "precision": 1.0,
+          "recall": 1.0,
+          "false_positive_rate": 0.0,
+          "false_negative_rate": 0.0,
+          "f1": 1.0
+        },
+        "non_monotonic": {
+          "tp": 3,
+          "fp": 0,
+          "fn": 0,
+          "tn": 17,
+          "n_items": 20,
+          "precision": 1.0,
+          "recall": 1.0,
+          "false_positive_rate": 0.0,
+          "false_negative_rate": 0.0,
+          "f1": 1.0
+        }
+      },
+      "timing": {
+        "seconds_best": 0.000152,
+        "seconds_median": 0.000152,
+        "repeats": 1,
+        "ms_per_item": 0.0076,
+        "python_peak_kib": 14.5,
+        "python_peak_caveat": "tracemalloc only: excludes numpy and torch buffers, so this undercounts the embedding path by orders of magnitude. Comparable between runs, not an absolute footprint."
+      },
+      "confusions": []
+    },
+    "judge_instability": {
+      "unit": "judge panel",
+      "label_basis": "CONSTRUCTED: the share of items on which agreement is forced is a design parameter",
+      "series": [
+        {
+          "forced_agreement_share": 0.0,
+          "raw_agreement": null,
+          "fleiss_kappa": null,
+          "kappa_undefined_reason": null,
+          "n_items": 60,
+          "n_judges": 3,
+          "timing": {
+            "seconds_best": 0.000304,
+            "seconds_median": 0.000304,
+            "repeats": 1,
+            "ms_per_item": 0.0051,
+            "python_peak_kib": 39.1,
+            "python_peak_caveat": "tracemalloc only: excludes numpy and torch buffers, so this undercounts the embedding path by orders of magnitude. Comparable between runs, not an absolute footprint."
+          }
+        },
+        {
+          "forced_agreement_share": 0.25,
+          "raw_agreement": null,
+          "fleiss_kappa": null,
+          "kappa_undefined_reason": null,
+          "n_items": 60,
+          "n_judges": 3,
+          "timing": {
+            "seconds_best": 0.000253,
+            "seconds_median": 0.000253,
+            "repeats": 1,
+            "ms_per_item": 0.0042,
+            "python_peak_kib": 39.1,
+            "python_peak_caveat": "tracemalloc only: excludes numpy and torch buffers, so this undercounts the embedding path by orders of magnitude. Comparable between runs, not an absolute footprint."
+          }
+        },
+        {
+          "forced_agreement_share": 0.5,
+          "raw_agreement": null,
+          "fleiss_kappa": null,
+          "kappa_undefined_reason": null,
+          "n_items": 60,
+          "n_judges": 3,
+          "timing": {
+            "seconds_best": 0.000245,
+            "seconds_median": 0.000245,
+            "repeats": 1,
+            "ms_per_item": 0.0041,
+            "python_peak_kib": 39.1,
+            "python_peak_caveat": "tracemalloc only: excludes numpy and torch buffers, so this undercounts the embedding path by orders of magnitude. Comparable between runs, not an absolute footprint."
+          }
+        },
+        {
+          "forced_agreement_share": 0.75,
+          "raw_agreement": null,
+          "fleiss_kappa": null,
+          "kappa_undefined_reason": null,
+          "n_items": 60,
+          "n_judges": 3,
+          "timing": {
+            "seconds_best": 0.000258,
+            "seconds_median": 0.000258,
+            "repeats": 1,
+            "ms_per_item": 0.0043,
+            "python_peak_kib": 39.1,
+            "python_peak_caveat": "tracemalloc only: excludes numpy and torch buffers, so this undercounts the embedding path by orders of magnitude. Comparable between runs, not an absolute footprint."
+          }
+        },
+        {
+          "forced_agreement_share": 1.0,
+          "raw_agreement": null,
+          "fleiss_kappa": null,
+          "kappa_undefined_reason": null,
+          "n_items": 60,
+          "n_judges": 3,
+          "timing": {
+            "seconds_best": 0.000245,
+            "seconds_median": 0.000245,
+            "repeats": 1,
+            "ms_per_item": 0.0041,
+            "python_peak_kib": 39.1,
+            "python_peak_caveat": "tracemalloc only: excludes numpy and torch buffers, so this undercounts the embedding path by orders of magnitude. Comparable between runs, not an absolute footprint."
+          }
+        }
+      ],
+      "monotonicity_check": {
+        "description": "chance-corrected agreement must not fall as the constructed agreement rises",
+        "passed": true,
+        "kappa_series": []
+      },
+      "note": "at share 1.0 every judge uses one category on some items and kappa may be undefined \u2014 the kappa paradox. An undefined value is the correct output there, not a failure."
+    },
+    "statistical_noise": {
+      "unit": "trial (a pair of models over 60 paired cases)",
+      "label_basis": "CONSTRUCTED: the true difference is a parameter",
+      "alpha": 0.05,
+      "arms": [
+        {
+          "true_difference": 0.0,
+          "n_trials": 200,
+          "significant_share": 0.055,
+          "verdicts": {
+            "no_meaningful_difference": 46,
+            "real_and_meaningful": 11,
+            "underpowered": 143
+          },
+          "timing_one_trial": {
+            "seconds_best": 0.001901,
+            "seconds_median": 0.001901,
+            "repeats": 1,
+            "ms_per_item": 0.0317,
+            "python_peak_kib": 9.9,
+            "python_peak_caveat": "tracemalloc only: excludes numpy and torch buffers, so this undercounts the embedding path by orders of magnitude. Comparable between runs, not an absolute footprint."
+          },
+          "interpretation": "models are genuinely equal, so this share is the FALSE POSITIVE RATE and should sit near alpha = 0.05",
+          "within_tolerance_of_alpha": true
+        },
+        {
+          "true_difference": 0.05,
+          "n_trials": 200,
+          "significant_share": 0.05,
+          "verdicts": {
+            "no_meaningful_difference": 43,
+            "real_and_meaningful": 10,
+            "underpowered": 147
+          },
+          "timing_one_trial": {
+            "seconds_best": 0.001752,
+            "seconds_median": 0.001752,
+            "repeats": 1,
+            "ms_per_item": 0.0292,
+            "python_peak_kib": 9.9,
+            "python_peak_caveat": "tracemalloc only: excludes numpy and torch buffers, so this undercounts the embedding path by orders of magnitude. Comparable between runs, not an absolute footprint."
+          },
+          "interpretation": "models differ by 5%, so this share is POWER at 60 cases \u2014 low power is a property of the sample size, not a bug"
+        },
+        {
+          "true_difference": 0.2,
+          "n_trials": 200,
+          "significant_share": 0.455,
+          "verdicts": {
+            "no_meaningful_difference": 5,
+            "real_and_meaningful": 91,
+            "underpowered": 104
+          },
+          "timing_one_trial": {
+            "seconds_best": 0.001877,
+            "seconds_median": 0.001877,
+            "repeats": 1,
+            "ms_per_item": 0.0313,
+            "python_peak_kib": 9.9,
+            "python_peak_caveat": "tracemalloc only: excludes numpy and torch buffers, so this undercounts the embedding path by orders of magnitude. Comparable between runs, not an absolute footprint."
+          },
+          "interpretation": "models differ by 20%, so this share is POWER at 60 cases \u2014 low power is a property of the sample size, not a bug"
+        }
+      ]
+    }
+  },
+  "limitations": [
+    "The fixtures and the detectors have the same author. A detector can pass both splits and still fail on data neither anticipates; the real-dataset false-positive counts in benchmarks/README.md are the only numbers here not written by the person who wrote the detectors.",
+    "DEV and TEST differ in seed and in surface content, which makes TEST a held-out sample from the SAME generator design \u2014 weaker than an independent benchmark. It protects against overfitting to specific strings, not against a shared blind spot in how the fixtures were conceived.",
+    "Labels for semantic duplicates and ambiguous references are author judgement. Precision on those is precision against these labels, not against truth, and a second annotator would move some of them.",
+    "The leakage label is definitional: it is the same rule the detector applies. A high score there measures implementation correctness and says nothing about whether verbatim containment is a good proxy for leakage.",
+    "Fixture sizes are tens of cases, so a single misclassification moves precision by several points. Treat differences of a few percent as noise.",
+    "python_peak_kib comes from tracemalloc and excludes numpy and torch buffers, so the embedding path is undercounted by orders of magnitude.",
+    "Runtime is wall clock on one machine. Comparable between two runs there, not across machines, and not a claim about performance in general.",
+    "No F1 is reported for class imbalance, judge instability or statistical noise: the first has a five-item universe, and the other two are not classification problems. An F1 for them would be uninterpretable.",
+    "The benchmark measures the detectors, not the audit report that composes them. Those have their own tests."
+  ]
+}

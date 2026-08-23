@@ -4,6 +4,79 @@ All notable changes to this project are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.14.0] — 2026-08-22
+
+### Added
+
+**`benchmarks/` — evallint measured against itself.** Labelled fixtures for all
+ten problem classes, with precision, recall, F1 where appropriate,
+false-positive rate, false-negative rate, runtime and peak allocation per
+detector. Committed baselines in `benchmarks/results/`, and a test that fails
+when the current code drifts from them — which is the point: a contributor can
+now tell whether a change actually improves anything.
+
+**Held out means held out.** DEV is for tuning, TEST carries the reported
+numbers, and the splits differ in seed AND surface content (customer-support
+vocabulary versus healthcare/transit, different paraphrase templates, different
+ambiguity cases). A test asserts no fixture shares a byte-identical positive
+case between splits.
+
+**Every fixture carries adversarial negatives**, because a fixture of obvious
+positives measures recall and nothing else: normalised-but-not-exact duplicates,
+same-topic different-question pairs, answers mentioned by topic but not
+verbatim, and questions containing subjective-sounding words that have one
+defensible answer. `score_sets` REQUIRES an explicit universe, so a detector
+that flags everything cannot look good.
+
+**Label bases are declared, per category**, and this matters more than the
+metrics. Objective by construction (exact duplicates, ceiling/floor/separating,
+statistical noise — the scorer is a fixture, so which models pass is written
+down); definitional (leakage: the label is the detector's own rule, so a high
+score measures implementation and not validity); author judgement (semantic
+duplicates, ambiguous references — precision against these labels, not against
+truth).
+
+**Measured on TEST, evallint 0.13.0:** exact duplicates P/R/F1 1.000; semantic
+duplicates at tau=0.85 P 0.947 R 1.000 F1 0.973; leakage P 0.667 R 1.000;
+ambiguous references P 1.000 R 0.667; class imbalance P 1.000 R 0.667;
+ceiling/floor/separating/non-monotonic 100% exact class agreement over 20 cases
+and 3 models. Under a TRUE NULL — two genuinely equal models over 200 trials —
+the paired test declared a real difference 5.5% of the time against a nominal
+alpha of 5%. Power at a 20-point difference over 60 cases: 45.5%.
+
+**Three known gaps, recorded and deliberately unfixed**, because fixing them in
+response to a TEST number would contaminate the split: `label_in_input` scores
+precision 0.000 and is the sole reason leakage precision is 0.667; class
+imbalance misses a single-class dataset (ratio 1.0:1, no warning, technically
+correct and useless); ambiguity misses two keyword-list cases.
+
+**F1 is omitted for three categories with the reason attached** — class
+imbalance has a five-dataset universe, and judge instability and statistical
+noise are not classification problems. Rates return None rather than 0.0 where
+the denominator is zero: "everything it flagged was wrong" and "it flagged
+nothing" are different results.
+
+### Fixed
+- A benchmark bug found while writing it: extracting per-case predictions by
+  filtering findings on `len(case_ids) == 1` also caught a DATASET-level finding
+  that happened to name one case, reporting a false positive that was not one.
+  Predictions now come from the structured per-case records the checks publish
+  in `stats`.
+- Two fixture defects, both of which made the benchmark measure less than it
+  claimed. The ambiguity fixture had byte-identical positives across splits, so
+  TEST was not held out for that category at all — honest TEST recall turned out
+  LOWER than DEV's once fixed, which is what a real held-out split looks like.
+  And the leakage fixture labelled only one case, so `label_in_input` hit its
+  widespread-collapse path and was never exercised; the first fix used "policy"
+  as a label, which appeared in the inputs, collapsing it a second time.
+
+### Tests
+58 new in `test_benchmark.py`, covering the split invariant, fixture internal
+consistency, the metric arithmetic including every undefined-rate case, and the
+baseline regression guard. `pythonpath = ["."]` added so the tests can import
+`benchmarks`, which deliberately does not ship in the wheel — it measures
+evallint from outside. Verified absent from the built artefact.
+
 ## [0.13.0] — 2026-08-22
 
 ### Added
@@ -877,6 +950,7 @@ First release.
   `embedder=` callable instead.
 - Not an eval runner. It audits the dataset that eval runners consume.
 
+[0.14.0]: https://github.com/BhagyasriUddandam/evallint/releases/tag/v0.14.0
 [0.13.0]: https://github.com/BhagyasriUddandam/evallint/releases/tag/v0.13.0
 [0.12.0]: https://github.com/BhagyasriUddandam/evallint/releases/tag/v0.12.0
 [0.11.0]: https://github.com/BhagyasriUddandam/evallint/releases/tag/v0.11.0

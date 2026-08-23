@@ -428,6 +428,52 @@ exited 3 and said so. Schema 2 fixes it; `conversation`, `turns`, `dialogue`,
 `chat` and `chat_history` are now aliases for `messages`, and MT-Bench loads
 and audits. See [Chat, rubrics and tool calls](#chat-rubrics-and-tool-calls).
 
+### Does evallint actually work? Its own benchmark
+
+```bash
+python -m benchmarks.runner --split test              # reportable numbers
+python -m benchmarks.runner --split test --semantic    # + the embedding level
+```
+
+A tool that reports flaws in other people's data had better be measured itself.
+`benchmarks/` holds labelled fixtures for all ten problem classes, with
+**adversarial negatives** in every one — a fixture of obvious positives measures
+recall and nothing else.
+
+| Detector | P | R | F1 | FPR | ms/item |
+|---|---|---|---|---|---|
+| exact duplicates | 1.000 | 1.000 | 1.000 | 0.000 | 0.008 |
+| semantic duplicates *(tau=0.85)* | 0.947 | 1.000 | 0.973 | 0.004 | 0.512 |
+| leakage | 0.667 | 1.000 | 0.800 | 0.250 | 0.019 |
+| ambiguous references | 1.000 | 0.667 | 0.800 | 0.000 | 0.008 |
+| class imbalance | 1.000 | 0.667 | — | 0.000 | — |
+
+Ceiling / floor / separating / non-monotonic classification: **100% exact
+agreement**, 0 disagreements. And the number that reassures me most, because its
+target is arithmetic rather than opinion — over 200 trials of two **genuinely
+equal** models, the paired test called a real difference **5.5% of the time**
+against a nominal alpha of 5%.
+
+**Held out means held out.** DEV is for tuning, TEST carries the reported
+numbers, and the splits differ in seed *and* surface content. A test asserts no
+fixture shares a positive case between them — added after catching the ambiguity
+fixture sharing all six of its positives, where honest TEST recall turned out
+*lower* than DEV's.
+
+Three gaps are recorded as **known and deliberately unfixed**, because fixing
+them in response to a TEST number would contaminate the split:
+`label_in_input` scores precision **0.000** and is the sole reason leakage
+precision is 0.667; class imbalance misses a single-class dataset; ambiguity
+misses two keyword-list cases.
+
+The honest limitation, stated first in the benchmark's own README: **the fixtures
+and the detectors have the same author.** The synthetic suite has never caught a
+bug that real datasets did not catch first — TruthfulQA (100 false positives),
+MMLU (3), HellaSwag (101) each found one. Committed baselines in
+`benchmarks/results/` make regressions fail CI.
+
+Full methodology and limitations: **[benchmarks/README.md](benchmarks/README.md)**.
+
 ### The unified audit report
 
 ```bash
@@ -1008,7 +1054,7 @@ runner.
 ## Development
 
 ```bash
-uv run pytest    # 733 tests
+uv run pytest    # 791 tests
 ```
 
 Every check is tested both ways: it must **fire on known-bad input** and **stay quiet on

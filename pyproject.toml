@@ -1,6 +1,6 @@
 [project]
 name = "evallint"
-version = "0.13.0"
+version = "0.14.0"
 description = "Audits LLM eval datasets for the flaws that make evaluations silently lie."
 readme = "README.md"
 requires-python = ">=3.12"
@@ -104,3 +104,8 @@ include = [
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+# The repo root, so `tests/test_benchmark.py` can import `benchmarks`. The
+# benchmark deliberately is NOT part of the installed package -- it measures
+# evallint from outside and must not ship in the wheel -- so it is reachable
+# only by path.
+pythonpath = ["."]
