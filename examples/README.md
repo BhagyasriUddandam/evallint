@@ -54,3 +54,32 @@ competent model should get them right (`billing_008` sales tax, `billing_013`
 invoice went up), so they are the cases most likely to be flagged as
 non-discriminating once real models are scored against them. That prediction
 is untested until the check runs — it is not a claimed result.
+
+## sample_evalset_v2.jsonl — the same shape in schema 2
+
+Three cases exercising every schema-2 field, so the format has a working
+reference that is also loaded by the test suite:
+
+- **`chat_001`** — a three-turn conversation, a `system` prompt, one
+  `acceptable` alternative to `expected`, and a weighted `rubric` with a scale.
+- **`chat_002`** — a tool call and its result inside `messages`, a declared
+  `tools` inventory, `expected_tool_calls` as ground truth, a structured
+  (object-valued) `expected`, and an `expected_schema`.
+- **`chat_003`** — a plain four-field case, unchanged from version 1, sitting in
+  the same file. That mixture is the point: schema 2 does not require rewriting
+  cases that were already fine.
+
+Two things to notice when you run it:
+
+```console
+$ evallint examples/sample_evalset_v2.jsonl --skip-duplicates
+```
+
+`chat_001` and `chat_002` have `input_is_derived = True` — their `input` was
+flattened from `messages`, and every check read that flattened text. `chat_003`
+has `input_is_derived = False`, because those words are the ones in the file.
+
+And the `system` prompt is byte-identical across the two chat cases, but it does
+not appear in either `input`. If it did, the two cases would share a long prefix
+and the redundancy check would call them near-duplicates — a finding about the
+flattening rather than about the eval.

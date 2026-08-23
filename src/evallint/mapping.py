@@ -38,6 +38,7 @@ from typing import Any
 
 __all__ = [
     "ALIASES",
+    "MAPPABLE",
     "AmbiguousMappingError",
     "FieldMapping",
     "MappingError",
@@ -73,6 +74,20 @@ ALIASES: dict[str, tuple[str, ...]] = {
         "output",
         "completion",
     ),
+    "messages": (
+        "conversation",
+        "turns",
+        "dialogue",
+        "dialog",
+        "chat",
+        "chat_history",
+        "conversations",
+    ),
+    "system": (
+        "system_prompt",
+        "system_message",
+        "system_instruction",
+    ),
     "label": (
         "category",
         "subject",
@@ -87,7 +102,17 @@ ALIASES: dict[str, tuple[str, ...]] = {
     ),
 }
 
-_REQUIRED = ("input",)
+#: Every field that can be mapped from a column. Kept in one place because
+#: three loops below have to agree on it -- explain(), apply_mapping() and the
+#: displaced-column pass. When they disagreed, a mapped value got silently
+#: overwritten by the column that shared its name.
+MAPPABLE = ("id", "input", "expected", "label", "messages", "system")
+
+#: A case needs SOMETHING to send to a model. Either a text prompt or a
+#: conversation will do, and a chat dataset has only the latter -- so requiring
+#: `input` outright would refuse every multi-turn file, which is exactly the
+#: wall this module exists to remove.
+_REQUIRED_ANY_OF = ("input", "messages")
 
 
 class MappingError(ValueError):
@@ -130,7 +155,7 @@ class FieldMapping:
 
     def explain(self) -> list[str]:
         lines = []
-        for field in ("id", "input", "expected", "label"):
+        for field in MAPPABLE:
             column = self.resolved.get(field)
             if column is None:
                 continue
@@ -224,12 +249,11 @@ def resolve_mapping(
         resolved[field] = candidates[0]
         inferred[field] = candidates[0]
 
-    missing = [f for f in _REQUIRED if f not in resolved]
-    if missing:
+    if not any(f in resolved for f in _REQUIRED_ANY_OF):
         raise MappingError(
-            f"no column could be used as '{', '.join(missing)}'. Columns found: "
-            f"{', '.join(present)}. Map one explicitly, e.g. "
-            f"--map input={present[0] if present else 'COLUMN'}"
+            "no column could be used as 'input' (or 'messages' for a chat "
+            f"dataset). Columns found: {', '.join(present)}. Map one "
+            f"explicitly, e.g. --map input={present[0] if present else 'COLUMN'}"
         )
 
     # A column can be NAMED like a canonical field while the mapping fills that
@@ -238,7 +262,7 @@ def resolve_mapping(
     # column must not be allowed to overwrite the mapped value, and it must not
     # be dropped either, so it is moved aside under a name that is reported.
     displaced: dict[str, str] = {}
-    for field in ("id", "input", "expected", "label"):
+    for field in MAPPABLE:
         column = lower.get(field)
         if column is None or resolved.get(field) == column:
             continue
@@ -263,7 +287,7 @@ def apply_mapping(record: dict[str, Any], mapping: FieldMapping) -> dict[str, An
     """
     out: dict[str, Any] = {}
     taken = set()
-    for field in ("id", "input", "expected", "label"):
+    for field in MAPPABLE:
         column = mapping.column_for(field)
         if column is not None and column in record:
             out[field] = record[column]

@@ -422,9 +422,91 @@ Explicit `--map` always wins, and a mapped field is never overwritten by a
 leftover column of the same name (the displaced column is kept in metadata and
 reported, not dropped).
 
-Multi-turn sets are a genuine limitation rather than a naming one: MT-Bench's
-prompt is a *list* of turns, and evallint models one case as one input string.
-No `--map` fixes that; it exits 3 and says so.
+Multi-turn sets used to be a genuine limitation rather than a naming one:
+MT-Bench's prompt is a *list* of turns, and there was no `--map` for that — it
+exited 3 and said so. Schema 2 fixes it; `conversation`, `turns`, `dialogue`,
+`chat` and `chat_history` are now aliases for `messages`, and MT-Bench loads
+and audits. See [Chat, rubrics and tool calls](#chat-rubrics-and-tool-calls).
+
+### Chat, rubrics and tool calls
+
+The four-field format is still the whole schema. A file written for evallint 0.1
+loads unchanged, and always will. Schema 2 adds seven optional things on top:
+**multi-turn `messages`**, **`system` prompts**, **`acceptable` alternative
+answers**, **structured `expected` + `expected_schema`**, **`rubric` criteria**,
+**`tools`** and **`expected_tool_calls`**.
+
+```json
+{"id": "refund-1",
+ "system": "You are a support agent. Never promise a refund.",
+ "messages": [
+   {"role": "user", "content": "My order never arrived."},
+   {"role": "assistant", "tool_calls": [{"name": "lookup", "arguments": {"id": "o1"}}]},
+   {"role": "tool", "content": "status=lost", "name": "lookup"},
+   {"role": "user", "content": "Can I get my money back?"}],
+ "expected": "escalate",
+ "acceptable": ["offer_replacement"],
+ "rubric": ["refuses_politely", "offers_alternative"]}
+```
+
+**The design decision that makes this backward compatible:** `input` stays a
+required string, and a chat case *derives* it by flattening the conversation.
+Every existing check therefore works on chat data with **no edits to any check** —
+and a one-turn conversation flattens to byte-identical text, so converting a file
+cannot change a single finding. `case.input_is_derived` records that the text was
+synthesised, because a report must never quote derived text back as yours.
+
+The `system` prompt is deliberately **excluded** from the flattened input. It is
+usually identical across every case, so folding it in would give every case a
+long shared prefix — the redundancy check would then report near-duplicates
+throughout and the effective-size estimate would collapse, both as artefacts of
+the flattening rather than facts about your data.
+
+Declaring a version is optional and does not unlock features — rich fields are
+read whenever they are well-formed. It changes *strictness*:
+
+```jsonc
+{"evallint_schema": 2}                          // .jsonl: an optional first line
+{"evallint_schema": 2, "cases": [ ... ]}        // .json:  an envelope
+```
+
+Undeclared, a `messages` value that is not a conversation is kept as metadata
+with a note — because real datasets do have a `messages` column meaning
+something else, and those files must keep loading. Declared, it is an error. A
+future version (`3`) is refused by name rather than misread.
+
+Errors are collected rather than raised one at a time, with the line and the
+JSON path inside the record:
+
+```
+errs.jsonl: 4 schema problems in 4 cases
+
+  errs.jsonl line 2.system: must be a string, got int
+      a system prompt is one block of text; put per-case settings in metadata instead
+  errs.jsonl line 5.messages[0].role: 'nobody' is not a valid role; allowed: system, user, assistant, tool
+```
+
+Migration is optional, and mostly worth it to make an inferred column mapping
+permanent:
+
+```console
+$ evallint gsm8k.jsonl --migrate-to gsm8k_v2.jsonl
+gsm8k.jsonl -> gsm8k_v2.jsonl
+  2 case(s), schema version 2 declared
+  columns renamed to canonical fields:
+    question -> input
+    answer -> expected
+    (so --map is no longer needed for this file)
+  verified: the written file reloads to identical cases
+```
+
+Nothing is written unless the output reloads to identical cases, field by field.
+It will not overwrite without `--overwrite`, will not write onto its own source,
+and will not write CSV. It also does **not** rewrite simple cases as one-turn
+conversations — that is a decision about your eval, not a mechanical one.
+
+Full reference, including the flattening rules and a worked hand-migration:
+**[docs/schema-v2.md](docs/schema-v2.md)**.
 
 ### Configuration file
 
@@ -837,9 +919,9 @@ more trustworthy than one that doesn't.
 
 - **Ambiguous-ground-truth check** — flag cases where the reference answer is one of
   several defensible responses, so a correct model gets marked wrong.
-- **Multi-turn eval sets.** One case is currently one input string, so a conversational
-  set like MT-Bench (whose prompt is a list of turns) cannot load at all. Supporting it
-  is a schema change, not a mapping one.
+- **Per-turn analysis.** Schema 2 loads conversations, but the checks read the
+  flattened text, so cross-turn leakage is found as overlap within one string
+  rather than attributed to a specific turn. Attributing it is the next step.
 
 Deliberately not planned: a web UI, a database, a hosted service, or becoming an eval
 runner.
@@ -847,7 +929,7 @@ runner.
 ## Development
 
 ```bash
-uv run pytest    # 613 tests
+uv run pytest    # 685 tests
 ```
 
 Every check is tested both ways: it must **fire on known-bad input** and **stay quiet on

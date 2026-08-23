@@ -38,6 +38,7 @@ def render_text(
     *,
     source: str,
     notes: Sequence[str] = (),
+    schema_notes: Sequence[str] = (),
     console: Console | None = None,
     max_case_ids: int = MAX_CASE_IDS,
 ) -> None:
@@ -60,6 +61,16 @@ def render_text(
         console.print()
         console.print(Text("Not run", style="bold"))
         console.print(Padding(_bullets(notes), (0, 0, 0, 2)))
+
+    # Its own heading, not folded into "Not run". A field demoted to metadata,
+    # or a conversation shape that had to be interpreted, changes WHAT THE
+    # CHECKS ABOVE LOOKED AT -- so filing it under a heading that says
+    # something did not run would misdescribe the one thing the reader must
+    # not misread.
+    if schema_notes:
+        console.print()
+        console.print(Text("How your file was read", style="bold"))
+        console.print(Padding(_bullets(schema_notes), (0, 0, 0, 2)))
 
     if results:
         console.print()
@@ -144,6 +155,7 @@ def to_dict(
     *,
     source: str,
     notes: Sequence[str] = (),
+    schema_notes: Sequence[str] = (),
 ) -> dict[str, Any]:
     """Build the JSON-serialisable form of a report.
 
@@ -175,6 +187,7 @@ def to_dict(
             for result in results
         ],
         "notes": list(notes),
+        "schema_notes": list(schema_notes),
     }
 
 

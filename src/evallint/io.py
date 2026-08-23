@@ -5,9 +5,28 @@ Supported formats, chosen by file extension:
     .json             a list of objects, or {"cases": [...]}
     .csv              a header row plus one row per case
 
-Canonical fields are ``id``, ``input``, ``expected`` and ``label``. Any other
-column or key is preserved in ``EvalCase.metadata`` rather than dropped, so a
-user's own bookkeeping survives a round trip through the tool.
+Canonical fields are ``id``, ``input``, ``expected`` and ``label``, plus the
+schema-2 additions ``messages``, ``system``, ``acceptable``, ``expected_schema``,
+``rubric``, ``tools`` and ``expected_tool_calls``. Any other column or key is
+preserved in ``EvalCase.metadata`` rather than dropped, so a user's own
+bookkeeping survives a round trip through the tool.
+
+## Declaring a schema version is optional, and only changes strictness
+
+    .json    {"evallint_schema": 2, "cases": [...]}
+    .jsonl   a first line of {"evallint_schema": 2}, then one case per line
+    .csv     cannot declare one; CSV is always read leniently
+
+A file that declares nothing is read as version 1: rich fields are still parsed
+when they are well-formed, but a ``messages`` value that is not a conversation
+is demoted to metadata with a note rather than rejected. That is what keeps
+existing datasets loading -- including one that happens to have a column called
+``messages`` meaning something else entirely. Declaring version 2 turns those
+demotions into errors. See :mod:`evallint.validation`.
+
+The version is never INFERRED from the fields present. A v1 file read under v2
+rules would fail on data that was always legal, and guessing here is the one
+thing this loader must not do.
 
 Errors are raised as LoadError with the file and location baked into the
 message ("sample.jsonl line 4: ..."), because a bad row in a 5000-line eval set
@@ -32,13 +51,16 @@ from pathlib import Path
 from typing import Any
 
 from .mapping import FieldMapping, apply_mapping, resolve_mapping
-from .schema import EvalCase, EvalSet, SchemaError
+from .schema import EvalSet, SchemaError
+from .validation import CANONICAL_FIELDS, check_version, parse_cases
 
-__all__ = ["LoadError", "load", "load_with_mapping"]
+__all__ = ["CANONICAL_FIELDS", "LoadError", "VERSION_KEY", "load", "load_with_mapping"]
 
 log = logging.getLogger(__name__)
 
-CANONICAL_FIELDS = ("id", "input", "expected", "label")
+#: The key a file uses to declare its schema version.
+VERSION_KEY = "evallint_schema"
+
 _JSONL_SUFFIXES = {".jsonl", ".ndjson"}
 
 
@@ -81,16 +103,27 @@ def load_with_mapping(
 
     suffix = path.suffix.lower()
     if suffix in _JSONL_SUFFIXES:
-        records = _read_jsonl(path)
+        records, declared = _read_jsonl(path)
     elif suffix == ".json":
-        records = _read_json(path)
+        records, declared = _read_json(path)
     elif suffix == ".csv":
-        records = _read_csv(path)
+        records, declared = _read_csv(path), None
     else:
         raise LoadError(
             f"{path.name}: unsupported file type '{suffix or path.name}' "
             "(expected .jsonl, .ndjson, .json or .csv)"
         )
+
+    # An unreadable version is refused before anything else: parsing 5000
+    # records under the wrong rules and then complaining would waste the work
+    # and could produce issues that are artefacts of the wrong version.
+    # Wrapped in LoadError like every other load failure. Left unwrapped, a
+    # SchemaValidationError escaped past the CLI's `except LoadError`, so a
+    # single mistyped version line produced a traceback instead of "Error: ...".
+    try:
+        version = 1 if declared is None else check_version(declared, source=path.name)
+    except SchemaError as exc:
+        raise LoadError(str(exc)) from exc
 
     # Column names come from the first record; JSONL in the wild is ragged, so
     # union the first few rather than trusting row 1 to have every field.
@@ -113,28 +146,42 @@ def load_with_mapping(
         # would just be a worse-worded version of it.
         mapping = FieldMapping({})
 
-    cases = [
-        _to_case(apply_mapping(record, mapping) if isinstance(record, dict) else record,
-                 where, position)
-        for position, (where, record) in enumerate(records, start=1)
+    mapped = [
+        (where, apply_mapping(record, mapping) if isinstance(record, dict) else record)
+        for where, record in records
     ]
 
     try:
-        eval_set = EvalSet(cases=tuple(cases), source=str(path))
+        parsed = parse_cases(mapped, strict=version >= 2, source=path.name)
+    except SchemaError as exc:
+        # Already carries the file name and every issue's location.
+        raise LoadError(str(exc)) from exc
+
+    try:
+        eval_set = EvalSet(
+            cases=tuple(parsed.cases),
+            source=str(path),
+            schema_version=version,
+            load_notes=tuple(parsed.notes),
+        )
     except SchemaError as exc:
         raise LoadError(f"{path.name}: {exc}") from exc
 
     log.info(
-        "loaded %d cases from %s (%s) in %.3fs",
-        len(eval_set), path, suffix.lstrip(".") or "?", time.perf_counter() - started,
+        "loaded %d cases from %s (%s, schema %d, %d chat) in %.3fs",
+        len(eval_set), path, suffix.lstrip(".") or "?", version,
+        eval_set.chat_cases, time.perf_counter() - started,
     )
+    for note in eval_set.load_notes:
+        log.warning("%s", note)
     for line in mapping.explain():
         log.debug("field map: %s", line)
     return eval_set, mapping
 
 
-def _read_jsonl(path: Path) -> list[tuple[str, Any]]:
+def _read_jsonl(path: Path) -> tuple[list[tuple[str, Any]], Any]:
     records: list[tuple[str, Any]] = []
+    declared: Any = None
     text = path.read_text(encoding="utf-8-sig")
     for lineno, line in enumerate(text.splitlines(), start=1):
         if not line.strip():
@@ -145,11 +192,27 @@ def _read_jsonl(path: Path) -> list[tuple[str, Any]]:
             raise LoadError(
                 f"{path.name} line {lineno}: invalid JSON ({exc.msg})"
             ) from exc
+        if _is_header(obj, first=not records and declared is None):
+            # JSONL has no envelope, so the version goes on an optional first
+            # line. Recognised only when the object declares a version and
+            # carries nothing that could make it a case -- otherwise a case
+            # with an `evallint_schema` field of its own would vanish.
+            declared = obj[VERSION_KEY]
+            continue
         records.append((f"{path.name} line {lineno}", obj))
-    return records
+    return records, declared
 
 
-def _read_json(path: Path) -> list[tuple[str, Any]]:
+def _is_header(obj: Any, *, first: bool) -> bool:
+    return (
+        first
+        and isinstance(obj, dict)
+        and VERSION_KEY in obj
+        and not ({"id", "input", "messages"} & set(obj))
+    )
+
+
+def _read_json(path: Path) -> tuple[list[tuple[str, Any]], Any]:
     try:
         payload = json.loads(path.read_text(encoding="utf-8-sig"))
     except json.JSONDecodeError as exc:
@@ -157,9 +220,11 @@ def _read_json(path: Path) -> list[tuple[str, Any]]:
             f"{path.name}: invalid JSON ({exc.msg} at line {exc.lineno})"
         ) from exc
 
+    declared: Any = None
     if isinstance(payload, dict):
         # Both shapes are common in the wild, so accept both rather than make
         # the user rewrite their file.
+        declared = payload.get(VERSION_KEY)
         if "cases" not in payload:
             raise LoadError(
                 f"{path.name}: a JSON object must have a 'cases' key holding "
@@ -172,7 +237,10 @@ def _read_json(path: Path) -> list[tuple[str, Any]]:
             f"{path.name}: expected a list of cases, or an object with a "
             f"'cases' list, got {type(payload).__name__}"
         )
-    return [(f"{path.name} item {i}", obj) for i, obj in enumerate(payload, start=1)]
+    return (
+        [(f"{path.name} item {i}", obj) for i, obj in enumerate(payload, start=1)],
+        declared,
+    )
 
 
 def _read_csv(path: Path) -> list[tuple[str, Any]]:
@@ -194,28 +262,3 @@ def _read_csv(path: Path) -> list[tuple[str, Any]]:
             }
             records.append((f"{path.name} row {row_number}", record))
     return records
-
-
-def _to_case(record: Any, where: str, position: int) -> EvalCase:
-    if not isinstance(record, dict):
-        raise LoadError(
-            f"{where}: expected an object, got {type(record).__name__}"
-        )
-
-    data = dict(record)  # copy: we pop canonical fields and keep the remainder
-    raw_id = data.pop("id", None)
-    case_id = f"case_{position}" if raw_id is None else str(raw_id)
-
-    if "input" not in data:
-        raise LoadError(f"{where}: missing required field 'input'")
-
-    try:
-        return EvalCase(
-            id=case_id,
-            input=data.pop("input"),
-            expected=data.pop("expected", None),
-            label=data.pop("label", None),
-            metadata=data,
-        )
-    except SchemaError as exc:
-        raise LoadError(f"{where}: {exc}") from exc

@@ -467,3 +467,90 @@ def test_vv_includes_debug_detail() -> None:
     result = run(str(EXAMPLE_SET), "--json", "--skip-duplicates", "-vv")
 
     assert "thresholds:" in result.stderr
+
+
+# --------------------------------------------------------------------------
+# Schema 2: migration, and making a demotion visible
+# --------------------------------------------------------------------------
+
+
+def test_migrate_to_converts_instead_of_auditing(tmp_path) -> None:
+    source = tmp_path / "gsm8k.jsonl"
+    source.write_text(
+        json.dumps({"question": "2+2?", "answer": "4"}) + "\n", encoding="utf-8"
+    )
+    dest = tmp_path / "out.jsonl"
+
+    result = run(str(source), "--migrate-to", str(dest))
+
+    assert result.exit_code == 0
+    assert "question -> input" in result.stdout
+    assert "verified" in result.stdout
+    # It converted rather than audited: no check output at all.
+    assert "imbalance" not in result.stdout
+    assert dest.exists()
+
+
+def test_migrate_refusal_exits_3_and_writes_nothing(tmp_path) -> None:
+    """Exit 3, not 1: nothing was audited, so this is not a failed gate."""
+    source = tmp_path / "in.jsonl"
+    source.write_text(
+        json.dumps({"id": "a", "input": "q"}) + "\n", encoding="utf-8"
+    )
+    dest = tmp_path / "out.jsonl"
+    dest.write_text("PRECIOUS", encoding="utf-8")
+
+    result = run(str(source), "--migrate-to", str(dest))
+
+    assert result.exit_code == 3
+    assert "already exists" in result.stderr
+    assert dest.read_text(encoding="utf-8") == "PRECIOUS"
+
+
+def test_a_bad_version_line_is_an_error_not_a_traceback(tmp_path) -> None:
+    """Regression: check_version raised SchemaValidationError, which escaped
+    the CLI's `except LoadError` and produced a traceback."""
+    data = tmp_path / "future.jsonl"
+    data.write_text(
+        json.dumps({"evallint_schema": 3}) + "\n"
+        + json.dumps({"id": "a", "input": "q"}) + "\n",
+        encoding="utf-8",
+    )
+
+    result = run(str(data), "--skip-duplicates")
+
+    assert result.exit_code == 3
+    assert result.exception is None or isinstance(result.exception, SystemExit)
+    assert "declares schema version 3" in result.stderr
+
+
+def test_a_demoted_field_is_reported_without_needing_verbose(tmp_path) -> None:
+    """A field kept as metadata changes what every check below looked at, so it
+    must be visible in the ordinary report."""
+    data = tmp_path / "d.jsonl"
+    data.write_text(
+        json.dumps({"id": "a", "input": "q", "messages": "not a conversation"}) + "\n",
+        encoding="utf-8",
+    )
+
+    result = run(str(data), "--skip-duplicates")
+
+    # Whitespace-normalised: rich wraps the report at the terminal width, so a
+    # multi-word substring can be split across lines.
+    flat = " ".join(result.stdout.split())
+    assert "How your file was read" in flat
+    assert "kept as metadata" in flat
+
+
+def test_chat_cases_in_an_undeclared_file_prompt_for_a_version(tmp_path) -> None:
+    data = tmp_path / "c.jsonl"
+    data.write_text(
+        json.dumps({"id": "a", "messages": [{"role": "user", "content": "hi"}]}) + "\n",
+        encoding="utf-8",
+    )
+
+    result = run(str(data), "--skip-duplicates")
+
+    flat = " ".join(result.stdout.split())
+    assert "evallint_schema" in flat
+    assert "read as conversations" in flat

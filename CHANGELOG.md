@@ -4,6 +4,91 @@ All notable changes to this project are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.12.0] — 2026-08-22
+
+### Added
+
+**Schema version 2.** Seven optional additions to the dataset representation:
+multi-turn `messages`, `system` prompts, `acceptable` alternative answers,
+structured `expected` plus `expected_schema`, `rubric` criteria, `tools`, and
+`expected_tool_calls`. The four-field format is unchanged and remains the whole
+schema for anyone who does not need the rest.
+
+**`input` stayed a required string, and that is the design.** Every check reads
+`case.input` as text — `len()` in imbalance, embedding in redundancy,
+`normalise()` in five leakage detectors. So a chat case DERIVES `input` by
+flattening its conversation, which means all eleven existing checks work on chat
+data with no edits to any check. A one-turn conversation flattens to
+byte-identical text, so converting a file cannot change a single finding, and
+`input_is_derived` records that the text was synthesised rather than written.
+
+**The `system` prompt is excluded from the flattened input.** It is usually
+identical across every case, so folding it in would give every case a long
+shared prefix: the redundancy check would report near-duplicates throughout and
+the effective-size estimate would collapse toward one cluster, both as artefacts
+of the flattening. A test builds two cases sharing a 20-fold-repeated system
+prompt and asserts their inputs share no token at all.
+
+**Versioning changes strictness, not features.** Rich fields are read whenever
+they are well-formed, declared or not, because dropping a user's conversation
+into metadata to be pedantic about a header line would be the silent data loss
+this package exists to report. Undeclared, a `messages` value that is not a
+conversation is kept as metadata with a note — real datasets do have a
+`messages` column meaning something else. Declared `"evallint_schema": 2`, it is
+an error, and a key one edit from a real field (`sytem`) is an error with a
+suggestion. A future version is refused by name rather than misread. The version
+is never inferred from the fields present.
+
+**Errors are collected, not raised one at a time.** A 5000-case file with 40
+mistakes takes one run to diagnose. Each issue carries the file, the line, the
+JSON path inside the record (`messages[1].role`), the bad value, and what was
+allowed. A consequence is not stacked on its cause: a case whose `messages`
+failed to parse also has no `input`, and only the first is reported.
+
+**MT-Bench loads.** Its prompt is a list of plain strings, which previously
+exited 3 with "no column could be used as 'input'". A list of strings is now
+read as successive USER turns — an interpretation, so it is reported every time
+it is applied, and migration writes explicit role objects so the note stops.
+
+**`evallint FILE --migrate-to OUT`** and `evallint.migrate_file`. Mostly worth
+it to make an inferred column mapping permanent: GSM8K needs `--map
+input=question` on every run, and after migrating the mapping is the identity.
+Nothing is written unless the output reloads to cases identical field by field;
+it refuses to overwrite without `--overwrite`, to write onto its own source, and
+to write CSV. It deliberately does NOT rewrite simple cases as one-turn
+conversations.
+
+**Schema notes get their own report heading**, "How your file was read", rather
+than being folded into "Not run". A field demoted to metadata changes what every
+check above actually looked at, so filing it under a heading that says something
+did not run would misdescribe it.
+
+New: `Message`, `Role`, `ToolCall`, `ToolSpec`, `Rubric`, `Criterion`,
+`derive_input`, `SchemaValidationError`, `ValidationIssue`, `MigrationReport`,
+`migrate_file`, `EvalCase.as_dict`, `EvalCase.acceptable_answers`,
+`EvalSet.load_notes`, `EvalSet.chat_cases`. 54 exports, up from 40.
+
+### Fixed
+- `check_version` raised outside the `LoadError` wrapper, so a single mistyped
+  version line gave the CLI a traceback instead of `Error: ...`.
+- The lenient demotion path said "kept as metadata" after the parser had already
+  popped the key, so the value was actually gone — a message wrong in the one
+  direction that matters, since the user would stop looking for their data.
+- The affected-case count in a validation error was derived by splitting the
+  issue path on `.`, so a source file named `x.jsonl` collapsed every issue into
+  one bucket and the count was silently always 1.
+- `mapping` had three loops over a hardcoded field list that had to agree; they
+  now share `MAPPABLE`. When they disagreed, a mapped value could be overwritten
+  by the column sharing its name.
+
+### Tests
+685, up from 613. The first section of `test_schema_v2.py` fixes version-1
+behaviour in place — the four-field record, the four-argument constructor, the
+existing aliases, and above all the exact TEXT each check sees — because the
+feature is worthless if it breaks a file someone already has. `test_migrate.py`
+proves every refusal leaves the destination absent, including by breaking
+`as_dict` on purpose to exercise the verification path.
+
 ## [0.11.0] — 2026-08-22
 
 ### Added
@@ -702,6 +787,7 @@ First release.
   `embedder=` callable instead.
 - Not an eval runner. It audits the dataset that eval runners consume.
 
+[0.12.0]: https://github.com/BhagyasriUddandam/evallint/releases/tag/v0.12.0
 [0.11.0]: https://github.com/BhagyasriUddandam/evallint/releases/tag/v0.11.0
 [0.10.0]: https://github.com/BhagyasriUddandam/evallint/releases/tag/v0.10.0
 [0.9.0]: https://github.com/BhagyasriUddandam/evallint/releases/tag/v0.9.0

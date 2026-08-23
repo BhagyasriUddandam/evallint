@@ -153,6 +153,21 @@ def _gate(results: list[CheckResult], fail_on: str) -> tuple[int, str]:
     "inferred automatically; use this when inference is ambiguous or wrong.",
 )
 @click.option(
+    "--migrate-to",
+    "migrate_to",
+    type=click.Path(dir_okay=False, path_type=Path),
+    help="Convert PATH to the declared schema-2 format and write it here, "
+    "instead of auditing. Makes an inferred --map permanent and declares the "
+    "version, so later typos become errors rather than silent metadata. Your "
+    "original file is never modified, and nothing is written unless the result "
+    "reloads to identical cases.",
+)
+@click.option(
+    "--overwrite",
+    is_flag=True,
+    help="Allow --migrate-to to replace an existing destination file.",
+)
+@click.option(
     "--config",
     "config_path",
     type=click.Path(exists=True, dir_okay=False, path_type=Path),
@@ -184,6 +199,8 @@ def main(
     leakage_overlap: bool,
     compare: str,
     field_map: tuple[str, ...],
+    migrate_to: Path | None,
+    overwrite: bool,
     config_path: Path | None,
     no_config: bool,
     verbose: int,
@@ -248,6 +265,22 @@ def main(
         field, _, column = item.partition("=")
         overrides[field.strip()] = column.strip()
 
+    if migrate_to is not None:
+        # Converting is not auditing, so it returns here rather than falling
+        # through: running checks on the way past would make a one-line
+        # conversion take an embedding pass, and the user asked for neither.
+        from .migrate import MigrationError, migrate_file
+
+        try:
+            report = migrate_file(
+                path, migrate_to, field_map=overrides or None, overwrite=overwrite
+            )
+        except MigrationError as exc:
+            click.echo(f"Error: {exc}", err=True)
+            sys.exit(EXIT_INCOMPLETE)
+        click.echo(report.render())
+        sys.exit(EXIT_OK)
+
     try:
         eval_set, mapping = load_with_mapping(path, overrides or None)
     except LoadError as exc:
@@ -280,6 +313,17 @@ def main(
     # without needing -v.
     if not mapping.is_identity() or mapping.alternatives:
         notes.extend(f"field map: {line}" for line in mapping.explain())
+    # Same reasoning as the field map: a field that was DEMOTED to metadata, or
+    # a conversation shape that had to be interpreted, changes what every check
+    # below actually looked at. It must be visible without -v -- and under its
+    # own heading rather than "Not run", which would misdescribe it.
+    schema_notes = list(eval_set.load_notes)
+    if eval_set.schema_version < 2 and eval_set.chat_cases:
+        schema_notes.append(
+            f"{eval_set.chat_cases} case(s) were read as conversations from a "
+            'file that declares no version. Add {"evallint_schema": 2} to have '
+            "evallint reject malformed turns instead of keeping them as metadata."
+        )
     incomplete: list[str] = []
 
     if skip_duplicates:
@@ -319,7 +363,9 @@ def main(
     code, explanation = _gate(results, fail_on)
 
     if as_json:
-        payload = to_dict(results, source=str(path), notes=notes)
+        payload = to_dict(
+            results, source=str(path), notes=notes, schema_notes=schema_notes
+        )
         payload["gate"] = {
             "fail_on": fail_on,
             "exit_code": EXIT_INCOMPLETE if incomplete else code,
@@ -328,7 +374,9 @@ def main(
         }
         click.echo(jsonlib.dumps(payload, indent=2))
     else:
-        render_text(results, source=str(path), notes=notes)
+        render_text(
+            results, source=str(path), notes=notes, schema_notes=schema_notes
+        )
 
     # Always on stderr, in both modes: a CI log should say WHY the build failed
     # without anyone having to parse the JSON, and stdout stays clean for

@@ -74,8 +74,23 @@ from .mapping import (
     MappingError,
     resolve_mapping,
 )
+from .migrate import MigrationError, MigrationReport, migrate_file
 from .report import render_text, to_dict
-from .schema import EvalCase, EvalSet, SchemaError
+from .schema import (
+    SCHEMA_VERSION,
+    SUPPORTED_SCHEMA_VERSIONS,
+    Criterion,
+    EvalCase,
+    EvalSet,
+    Message,
+    Role,
+    Rubric,
+    SchemaError,
+    ToolCall,
+    ToolSpec,
+    derive_input,
+)
+from .validation import SchemaValidationError, ValidationIssue
 
 # A library must not configure logging for the application that imports it.
 # NullHandler means evallint's log records go nowhere until someone calls
@@ -97,6 +112,20 @@ __all__ = [
     "EvalSet",
     "load",
     "load_with_mapping",
+    # schema 2: chat, rubrics, tools
+    "SCHEMA_VERSION",
+    "SUPPORTED_SCHEMA_VERSIONS",
+    "Criterion",
+    "Message",
+    "Role",
+    "Rubric",
+    "ToolCall",
+    "ToolSpec",
+    "ValidationIssue",
+    "derive_input",
+    # migration
+    "MigrationReport",
+    "migrate_file",
     # column mapping (real eval sets do not use evallint's field names)
     "FieldMapping",
     "resolve_mapping",
@@ -134,8 +163,10 @@ __all__ = [
     "AmbiguousMappingError",
     "LoadError",
     "MappingError",
+    "MigrationError",
     "MissingEmbeddingsError",
     "SchemaError",
+    "SchemaValidationError",
     "ScorerError",
     "__version__",
 ]

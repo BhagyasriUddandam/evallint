@@ -76,3 +76,48 @@ def test_readme_documents_every_discrimination_knob() -> None:
         if not re.search(rf"(?<![\w-]){re.escape(p)}(?![\w-])", text)
     ]
     assert not missing, f"README does not mention: {missing}"
+
+
+# --------------------------------------------------------------------------
+# Schema 2 documentation
+# --------------------------------------------------------------------------
+
+SCHEMA_DOC = ROOT / "docs" / "schema-v2.md"
+
+
+def test_every_canonical_field_is_documented() -> None:
+    """A field the loader reads but the docs never mention is undiscoverable,
+    and the reference table is exactly where someone looks for it."""
+    from evallint.validation import CANONICAL_FIELDS
+
+    text = SCHEMA_DOC.read_text()
+    missing = [f for f in CANONICAL_FIELDS if f"`{f}`" not in text]
+    assert not missing, f"undocumented schema fields: {missing}"
+
+
+def test_every_role_is_documented() -> None:
+    from evallint.schema import Role
+
+    text = SCHEMA_DOC.read_text()
+    missing = [r.value for r in Role if r.value not in text]
+    assert not missing, f"undocumented roles: {missing}"
+
+
+def test_the_readme_documents_the_new_cli_flags() -> None:
+    """Mirrors the discrimination-knob test: a flag absent from the README
+    cannot be found by anyone who is not reading --help."""
+    text = README.read_text()
+    for flag in ("--migrate-to", "--overwrite"):
+        assert flag in text, f"{flag} is not mentioned in the README"
+
+
+def test_the_supported_versions_claim_matches_the_code() -> None:
+    """The docs promise "supported versions: 1, 2" in an error message. If the
+    tuple grows, that promise goes stale in two places at once."""
+    from evallint.schema import SUPPORTED_SCHEMA_VERSIONS
+
+    assert SUPPORTED_SCHEMA_VERSIONS == (1, 2), (
+        "SUPPORTED_SCHEMA_VERSIONS changed; update docs/schema-v2.md and the "
+        "README, which both quote the supported set."
+    )
+    assert "supported versions: 1, 2" in SCHEMA_DOC.read_text()
