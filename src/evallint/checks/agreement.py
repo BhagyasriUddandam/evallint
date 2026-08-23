@@ -35,6 +35,7 @@ from collections.abc import Sequence
 
 __all__ = [
     "cohens_kappa",
+    "kendalls_w",
     "fleiss_kappa",
     "pairwise_agreement",
     "raw_agreement",
@@ -147,3 +148,47 @@ def fleiss_kappa(ratings: Sequence[Sequence[object]]) -> float | None:
     if p_expected >= 1.0:
         return None
     return (p_bar - p_expected) / (1.0 - p_expected)
+
+
+def kendalls_w(rankings: Sequence[Sequence[float]]) -> float | None:
+    """Kendall's coefficient of concordance, for agreement between rankings.
+
+        R_i  = sum of ranks given to item i across all raters
+        Rbar = m(n + 1) / 2
+        S    = sum_i (R_i - Rbar)^2
+        W    = 12 S / ( m^2 (n^3 - n) )
+
+    Args:
+        rankings: one sequence per RATER (here, per run), each holding that
+            rater's rank for every item in a consistent order.
+
+    W is 1 for perfect agreement and 0 when the rank sums are all equal, i.e.
+    the rankings are as inconsistent as they can be. Used for model ranking
+    stability: each run ranks the models, and W says how much those rankings
+    agree.
+
+    Returns None when there are fewer than two raters or fewer than two items,
+    because concordance between one ranking and nothing is undefined rather
+    than perfect.
+
+    NO TIE CORRECTION is applied. Tied ranks deflate W, so a reported value is a
+    lower bound when ties are present -- conservative, and stated wherever it is
+    used.
+    """
+    raters = [list(r) for r in rankings]
+    m = len(raters)
+    if m < 2:
+        return None
+    n = len(raters[0])
+    if n < 2:
+        return None
+    if any(len(r) != n for r in raters):
+        raise ValueError("every rater must rank the same number of items")
+
+    rank_sums = [sum(rater[i] for rater in raters) for i in range(n)]
+    mean_rank_sum = m * (n + 1) / 2.0
+    s = sum((total - mean_rank_sum) ** 2 for total in rank_sums)
+    denominator = m * m * (n**3 - n)
+    if denominator == 0:
+        return None
+    return 12.0 * s / denominator

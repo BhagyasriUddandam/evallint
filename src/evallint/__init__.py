@@ -19,6 +19,7 @@ The four checks:
     EvaluatorReliability  whether the GRADER itself is trustworthy
     compare_models        paired statistical comparison of two or more models
     estimate_effective_size  redundancy-adjusted scenario coverage
+    analyse_reproducibility  variance decomposition across repeated runs
     RedundancyCheck       redundancy at five levels, and scenario weighting
     DuplicateCheck        near-duplicate cases via embedding similarity
                           (needs the optional `evallint[embeddings]` extra, or
@@ -38,6 +39,8 @@ import logging
 from importlib.metadata import PackageNotFoundError, version
 
 from .checks import (
+    RunOutcome,
+    analyse_reproducibility,
     compare_models,
     estimate_effective_size,
     krippendorff_alpha,
@@ -116,6 +119,8 @@ __all__ = [
     # scorer / embedder contracts
     "Embedder",
     "Scorer",
+    "RunOutcome",
+    "analyse_reproducibility",
     "compare_models",
     "estimate_effective_size",
     "krippendorff_alpha",

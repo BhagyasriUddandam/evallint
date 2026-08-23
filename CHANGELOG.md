@@ -4,6 +4,72 @@ All notable changes to this project are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.11.0] — 2026-08-22
+
+### Added
+- **`analyse_reproducibility`** — decomposes the instability of a repeated
+  evaluation into three sources, reported SEPARATELY and never summed:
+
+      model stochasticity      >= 2 runs, judge held fixed
+                               -> lower temperature, or average more repeats
+      evaluator stochasticity  >= 2 judges scoring the SAME run
+                               -> fix the grader; re-running the model cannot help
+      dataset sampling         bootstrap over cases within one run
+                               -> add cases; re-running cannot help
+
+  They are additive only under a variance-components model with independent
+  effects, which these designs do not guarantee, and a single total would not
+  tell you which fix to apply. `as_dict()` contains no total, and a test asserts
+  that.
+
+- **The design determines what is identifiable.** With one judge, evaluator
+  variance is reported as NOT IDENTIFIABLE rather than zero -- reporting 0.0
+  would claim the grader is noiseless. With one run, nothing about run-to-run
+  stability is claimed, and the report states that this is not evidence of
+  reproducibility.
+
+- **Aggregate and per-case stability are reported separately**, and their
+  divergence is called out. A test constructs an eval whose headline score has
+  standard deviation EXACTLY zero while 100% of its individual verdicts flip
+  between runs: independent flips cancel in an average, so that is a coincidence
+  rather than reproducibility.
+
+- **Model ranking stability**: modal ranking and its share of runs, distinct
+  ranking count, top-model stability, Kendall's W, and which model pairs swapped
+  order. Three models two percentage points apart produce a different ranking in
+  most runs, and the analyser says so instead of reporting whichever order this
+  run gave.
+
+- **`kendalls_w`** added to `agreement`. No tie correction, so a reported value
+  is a LOWER bound on agreement when ties are present -- conservative, and stated
+  wherever it is used.
+
+- 40 exports, up from 38.
+
+### Fixed
+- A real bug in the sampling-variance path: it read `resamples` out of the
+  bootstrap's detail dict and called `len()` on an int. The sample size is now
+  the number of cases bootstrapped, which is the figure that actually governs
+  the interval.
+
+### Tests
+27 new, in the two required kinds. DETERMINISTIC tests construct outcomes by
+hand so expected values are exact -- including designs where one variance source
+is provably zero, which is how the separation is verified: a deterministic model
+with disagreeing judges must show model variance of exactly 0.0 and all the
+instability in the evaluator term. SEEDED STOCHASTIC tests fix the seed so a
+genuinely random model or judge cannot make the suite flake.
+
+Kendall's W is checked against a hand-computed case (W = 0.75 for one adjacent
+swap over three items, with the arithmetic in the docstring).
+
+One test bound was corrected after running it. It asserted more than 10
+flip-prone cases and the observed count was exactly 10. For a coin-flip model
+over 5 runs, flip-prone needs min(passes, fails) >= 2, which for Bin(5, 0.5) has
+probability (C(5,2) + C(5,3))/32 = 0.625, so the expectation over 20 cases is
+12.5 and 10 is well within noise. The bound is now derived from the binomial
+rather than eyeballed.
+
 ## [0.10.0] — 2026-08-22
 
 ### Added
@@ -636,6 +702,7 @@ First release.
   `embedder=` callable instead.
 - Not an eval runner. It audits the dataset that eval runners consume.
 
+[0.11.0]: https://github.com/BhagyasriUddandam/evallint/releases/tag/v0.11.0
 [0.10.0]: https://github.com/BhagyasriUddandam/evallint/releases/tag/v0.10.0
 [0.9.0]: https://github.com/BhagyasriUddandam/evallint/releases/tag/v0.9.0
 [0.8.0]: https://github.com/BhagyasriUddandam/evallint/releases/tag/v0.8.0

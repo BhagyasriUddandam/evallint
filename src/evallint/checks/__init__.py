@@ -20,7 +20,13 @@ from .separation import (
 )
 from .duplicates import DuplicateCheck, Embedder, MissingEmbeddingsError
 from .imbalance import ImbalanceCheck
-from .agreement import cohens_kappa, fleiss_kappa, pairwise_agreement, raw_agreement
+from .agreement import (
+    cohens_kappa,
+    fleiss_kappa,
+    kendalls_w,
+    pairwise_agreement,
+    raw_agreement,
+)
 from .effective_size import (
     EffectiveSizeEstimate,
     estimate_effective_size,
@@ -34,6 +40,11 @@ from .evaluator_reliability import (
     collect_verdicts,
 )
 from .ground_truth import AmbiguityJudge, GroundTruthCheck
+from .reproducibility import (
+    ReproducibilityReport,
+    RunOutcome,
+    analyse_reproducibility,
+)
 from .reliability_stats import (
     MetricResult,
     bootstrap_interval,
@@ -75,6 +86,8 @@ __all__ = [
     "ModelSummary",
     "PairComparison",
     "ReliabilityReport",
+    "ReproducibilityReport",
+    "RunOutcome",
     "LeakageCheck",
     "RedundancyCheck",
     "RedundancyLevel",
@@ -93,6 +106,7 @@ __all__ = [
     "cohens_kappa",
     "fleiss_kappa",
     "pairwise_agreement",
+    "kendalls_w",
     "raw_agreement",
     # evaluator-reliability statistics
     "bootstrap_interval",
@@ -104,6 +118,7 @@ __all__ = [
     # model comparison
     "cohens_g",
     "compare_models",
+    "analyse_reproducibility",
     "estimate_effective_size",
     "estimate_from_clusters",
     "holm_adjust",

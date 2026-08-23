@@ -26,6 +26,42 @@ reference answer and grader before blaming difficulty), and `inverted` (a *weake
 passed where a stronger one failed — usually a broken reference answer, and worth more
 than either).
 
+**Reproducibility — does the eval answer the same twice, and why not?** Three
+sources of instability, reported **separately and never summed**, because they
+need different fixes:
+
+| source | isolated by | the fix |
+|---|---|---|
+| model stochasticity | ≥2 runs, judge held fixed | lower temperature, or more repeats |
+| evaluator stochasticity | ≥2 judges on the *same* run | fix the grader — re-running won't help |
+| dataset sampling | bootstrap over cases in one run | add cases — re-running won't help |
+
+```python
+from evallint import analyse_reproducibility, RunOutcome
+print(analyse_reproducibility(outcomes).render())
+```
+
+A single "variance" number would destroy the only actionable information in the
+measurement. When the design can't separate two sources, the analyser says
+`not identifiable` rather than attributing the noise to one of them — one judge
+gives *unidentifiable* evaluator variance, not zero.
+
+**Aggregate stability and per-case stability are different things**, and the
+divergence is the finding. This eval has an aggregate standard deviation of
+**exactly zero** while **100% of its verdicts flip** between runs:
+
+```
+WARNING: the headline score is stable (sd 0.000) while 100% of individual
+verdicts flip between runs. Independent flips cancel in an average, so this is
+a coincidence rather than reproducibility, and it will not survive a change of
+model.
+```
+
+Also reports **model ranking stability** — the modal ranking's share of runs,
+Kendall's W, and which model pairs swapped order. Three models two points apart
+produce a different ranking most runs; the analyser says so instead of reporting
+whichever order this run happened to give.
+
 **Redundancy-adjusted coverage — raw cases versus distinct scenarios.** An eval
 advertising 500 cases may contain 312 scenarios, and an averaged score gives every
 case equal weight, so a scenario appearing eight times counts eight times.
@@ -811,7 +847,7 @@ runner.
 ## Development
 
 ```bash
-uv run pytest    # 586 tests
+uv run pytest    # 613 tests
 ```
 
 Every check is tested both ways: it must **fire on known-bad input** and **stay quiet on
