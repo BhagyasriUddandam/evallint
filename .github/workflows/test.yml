@@ -87,11 +87,19 @@ jobs:
         shell: bash
         run: |
           .venv/bin/python - <<'PY'
-          import platform, sys
-          import numpy
+          import importlib.util, platform, sys
           print("python  ", sys.version.split()[0], "|", sys.executable)
           print("platform", platform.platform(), "|", platform.machine())
-          print("numpy   ", numpy.__version__)
+          # numpy moved to the [embeddings] extra in 0.16.0, so a CORE install
+          # does not have it. An unconditional `import numpy` here failed all six
+          # core jobs -- reporting its absence is the useful thing anyway, since
+          # that absence is what this job exists to prove.
+          spec = importlib.util.find_spec("numpy")
+          if spec is None:
+              print("numpy    absent (expected: core install)")
+          else:
+              import numpy
+              print("numpy   ", numpy.__version__)
           PY
 
       - name: Run tests
