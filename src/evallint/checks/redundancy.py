@@ -68,12 +68,24 @@ from __future__ import annotations
 import re
 from collections.abc import Callable, Sequence
 from enum import Enum
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
-import numpy as np
+
+if TYPE_CHECKING:  # annotations only: numpy ships with the [embeddings] extra
+    import numpy as np
 
 from ..schema import EvalCase, EvalSet
 from .base import Check, CheckResult, Finding, Severity
+
+class SemanticSetTooLargeError(RuntimeError):
+    """The similarity matrix for this many cases would not fit in memory.
+
+    Deliberately NOT a subclass of ImportError: nothing is missing, and a caller
+    branching on install problems must not confuse the two. `run()` catches it
+    explicitly so the deterministic levels still report, and the run is marked
+    partial rather than clean.
+    """
+
 
 __all__ = [
     "DEFAULT_THRESHOLD",
@@ -102,6 +114,19 @@ SENSITIVITY_THRESHOLDS = (0.80, 0.85, 0.90, 0.95)
 #: value at which the bundled example and the four real public datasets produce
 #: no template false positives.
 MIN_SKELETON_TOKENS = 4
+
+#: Most pairs one hash bucket may materialise before falling back to a star.
+#: 200_000 pairs is roughly a 640-member family and about 20 MiB of dict, which
+#: is the point where the exact pair set stops being worth its memory: nobody
+#: acts on the 200_001st pair of a template family, and cluster membership is
+#: identical either way.
+MAX_BUCKET_PAIRS = 200_000
+
+#: Most cases the semantic level will build a similarity matrix for. The matrix
+#: is n^2 float32, so 20000 cases is 1.6 GB and 50000 is 10 GB -- an OOM kill
+#: rather than a slow run. Refusing with the arithmetic is more useful than
+#: dying, and the deterministic levels still run.
+MAX_SEMANTIC_CASES = 15_000
 
 #: Weight-share bands for reporting aggregate risk. CONVENTIONS, not derived
 #: quantities, and reported alongside the raw share so a reader can apply their
@@ -192,7 +217,7 @@ LIMITATIONS = (
     "proportional to the square of the case count.",
 )
 
-Embedder = Callable[[Sequence[str]], np.ndarray]
+Embedder = Callable[[Sequence[str]], "np.ndarray"]
 
 _WORD = re.compile(r"[^\W_]+", re.UNICODE)
 _NUMBER = re.compile(r"-?\d+(?:[.,]\d+)*")
@@ -343,6 +368,7 @@ class RedundancyCheck(Check):
             "n_similar_clusters": 0,
             "max_cluster_weight_share": 0.0,
             "threshold_sensitivity": {},
+            "truncated_buckets": [],
             "clusters": [],
         }
 
@@ -356,6 +382,7 @@ class RedundancyCheck(Check):
 
         # --- pair relations, strongest level wins -------------------------
         pair_level: dict[tuple[int, int], RedundancyLevel] = {}
+        truncated: list[dict[str, Any]] = []
 
         def record(i: int, j: int, level: RedundancyLevel) -> None:
             key = (i, j) if i < j else (j, i)
@@ -376,16 +403,41 @@ class RedundancyCheck(Check):
                 if key:  # skeleton() returns None when too generic
                     buckets.setdefault(key, []).append(idx)
             for members in buckets.values():
-                for a in range(len(members)):
-                    for b in range(a + 1, len(members)):
-                        record(members[a], members[b], level)
+                size = len(members)
+                n_pairs = size * (size - 1) // 2
+                if n_pairs <= MAX_BUCKET_PAIRS:
+                    for a in range(size):
+                        for b in range(a + 1, size):
+                            record(members[a], members[b], level)
+                    continue
+                # A single bucket can be the whole dataset: mask the numbers out
+                # of a templated eval and 5000 cases collapse to one skeleton,
+                # which is 12.5 million pairs and about 1.5 GiB. Measured, not
+                # hypothetical -- and at 20000 cases it is an OOM kill.
+                #
+                # Clusters are CONNECTED COMPONENTS, so linking every member to
+                # the first produces the identical component with size-1 edges
+                # instead of size*(size-1)/2. Cluster membership is therefore
+                # exactly preserved; what is lost is the per-pair detail, and
+                # that loss is recorded rather than silent.
+                first = members[0]
+                for other in members[1:]:
+                    record(first, other, level)
+                truncated.append(
+                    {
+                        "level": level.value,
+                        "bucket_size": size,
+                        "pairs_not_materialised": n_pairs - (size - 1),
+                    }
+                )
 
         similarity = None
         if self.semantic:
             try:
                 similarity = self._similarity_matrix(texts)
-            except ImportError as exc:
-                # ONLY unavailability degrades gracefully. A bare `except
+            except (ImportError, SemanticSetTooLargeError) as exc:
+                # ONLY unavailability and an unaffordable matrix degrade
+                # gracefully -- two named, expected conditions. A bare `except
                 # Exception` here swallowed a KeyError from a mis-built test
                 # embedder and silently reported a narrower audit as a complete
                 # one -- exactly the failure this project exists to report. Any
@@ -412,6 +464,8 @@ class RedundancyCheck(Check):
                                 if same_answer
                                 else RedundancyLevel.SEMANTIC,
                             )
+                import numpy as np
+
                 stats["threshold_sensitivity"] = {
                     f"{t:.2f}": int(
                         np.count_nonzero(np.triu(similarity >= t, k=1))
@@ -428,15 +482,21 @@ class RedundancyCheck(Check):
             union.union(i, j)
         clusters = union.groups()
 
-        cluster_records = []
+        # Group the recorded pairs by cluster in ONE pass. The previous version
+        # looped over every ordered pair of members per cluster, which is
+        # quadratic a second time and dominates on a large family.
+        levels_by_root: dict[int, list[RedundancyLevel]] = {}
+        for (i, j), level in pair_level.items():
+            levels_by_root.setdefault(union.find(i), []).append(level)
+
+        cluster_records: list[dict[str, Any]] = []
         for position, members in enumerate(clusters, start=1):
-            levels = [
-                pair_level[(a, b)]
-                for a in members
-                for b in members
-                if a < b and (a, b) in pair_level
-            ]
+            levels = levels_by_root.get(union.find(members[0]), [])
             strongest = min(levels, key=LEVEL_ORDER.index)
+            # Similarity summaries need the full pair set, so they are computed
+            # only when the cluster is small enough for that to be cheap. A
+            # 5000-member cluster would be 12.5 million matrix reads for three
+            # numbers nobody can act on.
             sims = (
                 [
                     float(similarity[a, b])
@@ -445,6 +505,7 @@ class RedundancyCheck(Check):
                     if a < b
                 ]
                 if similarity is not None
+                and len(members) * (len(members) - 1) // 2 <= MAX_BUCKET_PAIRS
                 else []
             )
             weight_share = len(members) / n
@@ -467,6 +528,7 @@ class RedundancyCheck(Check):
                 }
             )
 
+        stats["truncated_buckets"] = truncated
         redundant = sum(r["size"] - 1 for r in cluster_records)
         stats.update(
             n_clusters=len(cluster_records),
@@ -620,6 +682,30 @@ class RedundancyCheck(Check):
 
     # -- embeddings ------------------------------------------------------
     def _similarity_matrix(self, texts: list[str]) -> np.ndarray:
+        from .duplicates import MissingEmbeddingsError
+
+        try:
+            import numpy as np
+        except ImportError as exc:  # pragma: no cover - exercised in a subprocess
+            raise MissingEmbeddingsError(
+                    "semantic redundancy needs numpy, which ships with the "
+                    "same optional extra as the embedding model because the "
+                    "similarity matrix is built with it.\n\n"
+                    "    pip install 'evallint[embeddings]'\n\n"
+                    "The exact, normalized and template levels run without it."
+            ) from exc
+
+        n = len(texts)
+        if n > MAX_SEMANTIC_CASES:
+            gib = (n * n * 4) / 1024**3
+            raise SemanticSetTooLargeError(
+                f"semantic redundancy needs an {n}x{n} similarity matrix, "
+                f"which is {gib:.1f} GiB of float32 — more than this is willing "
+                f"to allocate (limit {MAX_SEMANTIC_CASES} cases). The exact, "
+                "normalized and template levels still run. To compare a set "
+                "this large, sample it first or raise MAX_SEMANTIC_CASES "
+                "knowing the cost."
+            )
         vectors = np.asarray(self._get_embedder()(texts), dtype=np.float32)
         if vectors.ndim != 2 or vectors.shape[0] != len(texts):
             raise ValueError(

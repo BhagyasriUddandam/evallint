@@ -583,7 +583,7 @@ def _stats_section(
         f"reference answer, {eval_set.chat_cases} multi-turn"
     )
     findings: tuple[AuditFinding, ...] = ()
-    limitations = (
+    limitations: tuple[str, ...] = (
         "These are counts of what the file contains. They say nothing about "
         "whether the cases are correct, well-chosen, or hard.",
     )
@@ -1021,7 +1021,7 @@ def _reproducibility_section(report: Any | None) -> AuditSection:
                 ),
             )
         )
-    findings = tuple(findings)
+    resolved = tuple(findings)
     return AuditSection(
         key="reproducibility",
         title="Reproducibility",
@@ -1030,9 +1030,9 @@ def _reproducibility_section(report: Any | None) -> AuditSection:
             f"{getattr(report, 'n_runs', '?')} runs, "
             f"{getattr(report, 'n_models', '?')} model(s), "
             f"{getattr(report, 'n_cases', '?')} cases; "
-            f"{len(findings)} instability finding(s)"
+            f"{len(resolved)} instability finding(s)"
         ),
-        findings=findings,
+        findings=resolved,
         stats=report.as_dict() if hasattr(report, "as_dict") else {},
         limitations=tuple(dict.fromkeys(limitations)) or ("none stated",),
     )

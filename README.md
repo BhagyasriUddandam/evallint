@@ -849,8 +849,12 @@ full list.
 - **Semantic similarity is a heuristic.** Precision at τ=0.85 measured 0.947
   against author-written labels — precision against *those labels*, not truth.
 - **Paraphrased leakage is invisible** to string matching.
-- **Redundancy detection is O(n²)** in time and memory. Fine for a few thousand
-  cases, not for a corpus.
+- **Redundancy detection has measured limits.** The deterministic levels are
+  hash-based and now bounded: 10,000 cases in one template family run in 0.5 s
+  and 4.5 MiB. Before a pair budget was added they took 53 s and 1.5 GiB at
+  5,000 cases, because one bucket materialised every pair. The semantic level is
+  inherently O(n²) — the similarity matrix is n²×4 bytes — and refuses above
+  15,000 cases with the arithmetic rather than being OOM-killed.
 - **Model separation depends entirely on the model pair you choose.** Two models
   closer in capability than you assumed produce cases that look non-separating,
   and the check cannot tell the difference. It cannot verify your "weak" model is
@@ -887,7 +891,7 @@ quality score, or becoming an eval runner.
 ## Development
 
 ```bash
-uv run pytest    # 808 tests
+uv run pytest    # 853 tests
 ```
 
 Every check is tested both ways: it must **fire on known-bad input** and **stay quiet on

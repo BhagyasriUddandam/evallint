@@ -21,7 +21,8 @@ argument for five mechanisms instead of one tuned number.
 
 from __future__ import annotations
 
-import numpy as np
+import importlib.util
+
 import pytest
 
 from evallint.checks.redundancy import (
@@ -34,6 +35,21 @@ from evallint.checks.redundancy import (
     skeleton,
 )
 from evallint.schema import EvalCase, EvalSet
+
+# numpy moved to the [embeddings] extra when a review found it was 25 MiB of a
+# 32 MiB core install used for one median. The tests below build fake embedders
+# that return arrays, so they need it.
+#
+# `pytestmark` rather than `importorskip`: importorskip raises during COLLECTION,
+# which removes these tests from the collected count and makes the README's
+# stated test total depend on which extras happen to be installed. A skipif mark
+# collects them and skips them, so the count is stable everywhere.
+_HAS_NUMPY = importlib.util.find_spec("numpy") is not None
+pytestmark = pytest.mark.skipif(
+    not _HAS_NUMPY, reason="needs numpy from the [embeddings] extra"
+)
+if _HAS_NUMPY:
+    import numpy as np
 
 # =========================================================================
 # Labelled fixture
@@ -679,3 +695,120 @@ def test_a_full_run_is_not_partial() -> None:
     vectors = {comparison_key(t): [1.0, 0.0] for t in texts.values()}
     result = RedundancyCheck(embedder=fake_embedder(vectors)).run(simple_set(texts))
     assert result.partial == ()
+
+
+# --------------------------------------------------------------------------
+# Scale: one large family must not cost quadratic memory
+# --------------------------------------------------------------------------
+
+
+def _templated(n: int) -> EvalSet:
+    """n cases that all collapse to ONE skeleton once numbers are masked.
+
+    The realistic shape this guards against: a templated eval ("what is {a} +
+    {b}") is a single template family, so the bucket is the whole dataset.
+    """
+    return EvalSet(
+        cases=tuple(
+            EvalCase(
+                id=f"c{i}",
+                input=f"Question number {i} about topic {i} with padding text?",
+                expected=f"answer {i} with enough characters to count",
+            )
+            for i in range(n)
+        )
+    )
+
+
+def test_a_star_produces_the_same_cluster_as_every_pair() -> None:
+    """The claim the optimisation rests on, tested rather than asserted.
+
+    Clusters are connected components, so linking every bucket member to the
+    first gives the identical component with size-1 edges instead of
+    size*(size-1)/2. Verified by running the same data on both sides of the
+    budget.
+    """
+    from evallint.checks import redundancy as module
+
+    eval_set = _templated(60)
+
+    exhaustive = module.RedundancyCheck(semantic=False).run(eval_set)
+
+    original = module.MAX_BUCKET_PAIRS
+    try:
+        module.MAX_BUCKET_PAIRS = 10  # forces the star path for a 60-member bucket
+        starred = module.RedundancyCheck(semantic=False).run(eval_set)
+    finally:
+        module.MAX_BUCKET_PAIRS = original
+
+    assert starred.stats["truncated_buckets"], "the star path did not trigger"
+    assert not exhaustive.stats["truncated_buckets"]
+
+    # Cluster MEMBERSHIP must be identical -- that is the guarantee.
+    def members(result):
+        return sorted(tuple(sorted(c["case_ids"])) for c in result.stats["clusters"])
+
+    assert members(starred) == members(exhaustive)
+    assert starred.stats["n_clusters"] == exhaustive.stats["n_clusters"]
+    assert starred.stats["n_redundant_cases"] == exhaustive.stats["n_redundant_cases"]
+    assert starred.stats["effective_n_cases"] == exhaustive.stats["effective_n_cases"]
+
+
+def test_truncation_is_reported_not_silent() -> None:
+    from evallint.checks import redundancy as module
+
+    original = module.MAX_BUCKET_PAIRS
+    try:
+        module.MAX_BUCKET_PAIRS = 10
+        stats = module.RedundancyCheck(semantic=False).run(_templated(40)).stats
+    finally:
+        module.MAX_BUCKET_PAIRS = original
+
+    assert len(stats["truncated_buckets"]) == 1
+    record = stats["truncated_buckets"][0]
+    assert record["bucket_size"] == 40
+    assert record["pairs_not_materialised"] == 40 * 39 // 2 - 39
+
+
+def test_ten_thousand_cases_in_one_family_stay_within_budget() -> None:
+    """Before the pair budget this allocated about 6 GiB and took minutes.
+
+    The bounds are deliberately loose -- this is a guard against a return to
+    quadratic behaviour, not a performance benchmark, and CI machines vary.
+    """
+    import time
+    import tracemalloc
+
+    eval_set = _templated(10_000)
+    tracemalloc.start()
+    started = time.perf_counter()
+    result = RedundancyCheck(semantic=False).run(eval_set)
+    elapsed = time.perf_counter() - started
+    _, peak = tracemalloc.get_traced_memory()
+    tracemalloc.stop()
+
+    assert result.stats["n_clusters"] == 1
+    assert peak / 1024**2 < 200, f"peak {peak / 1024**2:.0f} MiB looks quadratic"
+    assert elapsed < 30, f"{elapsed:.1f}s looks quadratic"
+
+
+def test_the_semantic_level_refuses_an_unaffordable_matrix() -> None:
+    """Refusing with the arithmetic beats an OOM kill, and the deterministic
+    levels still run."""
+    from evallint.checks import redundancy as module
+
+    original = module.MAX_SEMANTIC_CASES
+    try:
+        module.MAX_SEMANTIC_CASES = 5
+        check = module.RedundancyCheck(
+            semantic=True, embedder=lambda texts: [[1.0, 0.0]] * len(texts)
+        )
+        result = check.run(_templated(20))
+    finally:
+        module.MAX_SEMANTIC_CASES = original
+
+    assert result.partial, "an unaffordable matrix must mark the run partial"
+    assert "GiB" in result.partial[0]
+    # A size refusal must not be reported as a missing install.
+    assert "pip install" not in result.partial[0]
+    assert "semantic" not in result.stats["levels_run"]

@@ -84,6 +84,10 @@ input-only behaviour.
 - **`semantic` needs the optional extra.** Without `pip install
   evallint[embeddings]` the three deterministic levels run and the check reports
   itself as partial rather than clean.
+- **Measured limits.** The deterministic levels handle 10,000 cases in one
+  template family in 0.5 s and 4.5 MiB. The semantic level builds an n²
+  similarity matrix and refuses above 15,000 cases, naming the GiB it would have
+  needed, rather than being OOM-killed.
 - **Connected components over-cluster on purpose.** A chain A~B~C groups all
   three even when A and C are not similar. That inflates redundancy, making the
   result *more* conservative.

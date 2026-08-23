@@ -14,8 +14,8 @@ measurable; in a 20-case set a 5% class has one. Share alone would miss that.
 from __future__ import annotations
 
 from collections import Counter
+from statistics import median
 
-import numpy as np
 
 from ..schema import EvalSet
 from .base import Check, CheckResult, Finding, Severity
@@ -185,10 +185,17 @@ class ImbalanceCheck(Check):
 
 
 def _length_stats(eval_set: EvalSet) -> dict[str, float]:
-    lengths = np.array([len(case.input) for case in eval_set])
+    """Four scalars from the stdlib.
+
+    This was the ONLY numpy use on the no-embeddings path, and numpy is 25 MiB
+    of a 28 MiB core install. `statistics.median` matches numpy's definition for
+    both odd and even counts, including the mean-of-two-middles case, so the
+    numbers are unchanged -- asserted in tests/test_imbalance.py.
+    """
+    lengths = sorted(len(case.input) for case in eval_set)
     return {
-        "min": int(lengths.min()),
-        "median": float(np.median(lengths)),
-        "mean": round(float(lengths.mean()), 1),
-        "max": int(lengths.max()),
+        "min": lengths[0],
+        "median": float(median(lengths)),
+        "mean": round(sum(lengths) / len(lengths), 1),
+        "max": lengths[-1],
     }

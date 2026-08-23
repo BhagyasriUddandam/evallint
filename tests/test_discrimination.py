@@ -8,13 +8,29 @@ of the injected-scorer design. What is under test is the verdict TAXONOMY
 
 from __future__ import annotations
 
+import importlib.util
+
 import threading
 
-import numpy as np
 import pytest
 
 from evallint.checks import DiscriminationCheck, ScorerError, Severity
 from evallint.schema import EvalCase, EvalSet
+
+# numpy moved to the [embeddings] extra when a review found it was 25 MiB of a
+# 32 MiB core install used for one median. The tests below build fake embedders
+# that return arrays, so they need it.
+#
+# `pytestmark` rather than `importorskip`: importorskip raises during COLLECTION,
+# which removes these tests from the collected count and makes the README's
+# stated test total depend on which extras happen to be installed. A skipif mark
+# collects them and skips them, so the count is stable everywhere.
+_HAS_NUMPY = importlib.util.find_spec("numpy") is not None
+pytestmark = pytest.mark.skipif(
+    not _HAS_NUMPY, reason="needs numpy from the [embeddings] extra"
+)
+if _HAS_NUMPY:
+    import numpy as np
 
 WEAK, STRONG = "weak-model", "strong-model"
 
@@ -307,18 +323,22 @@ def test_unusable_scorer_return_is_rejected() -> None:
         DiscriminationCheck(stringy_scorer, [WEAK, STRONG]).run(make_set(["a"]))
 
 
+# Parametrised over NAMES, not over numpy objects. A `parametrize` list is
+# evaluated at import time, so `np.True_` in it made the whole module fail to
+# collect on a core-only install -- which silently dropped 82 tests and made the
+# collected total depend on which extras happened to be present.
 @pytest.mark.parametrize(
-    ("value", "expected_verdict"),
+    ("builder", "expected_verdict"),
     [
-        (np.True_, True),
-        (np.False_, False),
-        (np.float64(0.9), True),
-        (np.float64(0.1), False),
-        (np.int64(1), True),
-        (np.int32(0), False),
+        ("True_", True),
+        ("False_", False),
+        ("float64:0.9", True),
+        ("float64:0.1", False),
+        ("int64:1", True),
+        ("int32:0", False),
     ],
 )
-def test_numpy_scalars_from_a_scorer_are_accepted(value, expected_verdict) -> None:
+def test_numpy_scalars_from_a_scorer_are_accepted(builder, expected_verdict) -> None:
     """A scorer built on array maths returns np.bool_, not bool.
 
     That is the normal shape of a real scorer (`y_pred == y_true`), and the
@@ -326,6 +346,12 @@ def test_numpy_scalars_from_a_scorer_are_accepted(value, expected_verdict) -> No
     is especially nasty: its type name is "bool", so rejecting it produced the
     message "returned bool ... expected bool or float".
     """
+    if ":" in builder:
+        dtype, literal = builder.split(":")
+        value = getattr(np, dtype)(float(literal))
+    else:
+        value = getattr(np, builder)
+
     check = DiscriminationCheck(lambda case, model: value, [WEAK, STRONG])
     result = check.run(make_set(["a"]))
 

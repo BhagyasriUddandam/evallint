@@ -263,13 +263,15 @@ def resolve_mapping(
     # be dropped either, so it is moved aside under a name that is reported.
     displaced: dict[str, str] = {}
     for field in MAPPABLE:
-        column = lower.get(field)
-        if column is None or resolved.get(field) == column:
+        # A distinct name: `column` is bound to a str earlier in this function,
+        # so reusing it here hides the Optional from a type checker.
+        named = lower.get(field)
+        if named is None or resolved.get(field) == named:
             continue
-        moved_to = f"unmapped_{column}"
+        moved_to = f"unmapped_{named}"
         while moved_to in present or moved_to in displaced.values():
             moved_to = f"{moved_to}_"
-        displaced[column] = moved_to
+        displaced[named] = moved_to
 
     return FieldMapping(
         resolved,

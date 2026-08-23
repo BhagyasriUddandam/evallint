@@ -17,8 +17,11 @@ function in the discrimination check.
 from __future__ import annotations
 
 from collections.abc import Callable, Sequence
+from typing import TYPE_CHECKING
 
-import numpy as np
+
+if TYPE_CHECKING:  # annotations only: numpy ships with the [embeddings] extra
+    import numpy as np
 
 from ..schema import EvalSet
 from .base import Check, CheckResult, Finding
@@ -39,7 +42,7 @@ class MissingEmbeddingsError(ImportError):
     giving callers something specific to branch on.
     """
 
-Embedder = Callable[[Sequence[str]], np.ndarray]
+Embedder = Callable[[Sequence[str]], "np.ndarray"]
 
 DEFAULT_MODEL = "all-MiniLM-L6-v2"
 # 0.85 is a convention, but it was measured rather than guessed. On the bundled
@@ -120,6 +123,8 @@ class DuplicateCheck(Check):
         similarity = self._similarity_matrix([c.input for c in cases])
         # The diagonal is every case matching itself. Blank it out so it can
         # never be reported as a duplicate pair.
+        import numpy as np
+
         np.fill_diagonal(similarity, 0.0)
         stats["max_similarity"] = round(float(similarity.max()), 4)
 
@@ -186,6 +191,17 @@ class DuplicateCheck(Check):
         return Finding(message, case_ids=case_ids)
 
     def _similarity_matrix(self, texts: list[str]) -> np.ndarray:
+        try:
+            import numpy as np
+        except ImportError as exc:  # pragma: no cover - exercised in a subprocess
+            raise MissingEmbeddingsError(
+                    "semantic redundancy needs numpy, which ships with the "
+                    "same optional extra as the embedding model because the "
+                    "similarity matrix is built with it.\n\n"
+                    "    pip install 'evallint[embeddings]'\n\n"
+                    "The exact, normalized and template levels run without it."
+            ) from exc
+
         # float32, not float64. The output is an n x n matrix, so precision is
         # the single biggest lever on how large an eval set fits in memory:
         # at n=10,000 the matrix alone is 800MB at float64 and 400MB at float32.
@@ -240,6 +256,8 @@ class DuplicateCheck(Check):
 
 
 def _connected_components(adjacency: np.ndarray) -> list[list[int]]:
+    import numpy as np
+
     """Group linked cases. Only groups of 2+ are returned."""
     seen = np.zeros(adjacency.shape[0], dtype=bool)
     components = []
@@ -269,10 +287,14 @@ def _pairs(indices: Sequence[int]) -> list[tuple[int, int]]:
 
 
 def _pairwise_min(similarity: np.ndarray, indices: Sequence[int]) -> float:
+    import numpy as np
+
     return min(float(similarity[i, j]) for i, j in _pairs(indices))
 
 
 def _pairwise_max(similarity: np.ndarray, indices: Sequence[int]) -> float:
+    import numpy as np
+
     return max(float(similarity[i, j]) for i, j in _pairs(indices))
 
 

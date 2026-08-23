@@ -576,7 +576,15 @@ def _parse_tool_calls(
         try:
             calls.append(
                 ToolCall(
-                    name=call.get("name"),
+                    # Deliberately unchecked: ToolCall.__post_init__
+                    # raises SchemaError for a missing or non-string
+                    # name, and that error carries the file location.
+                    # str() here would silently coerce bad input.
+                    # Deliberately unchecked: ToolCall.__post_init__ raises
+                # SchemaError for a missing or non-string name, and that
+                # error carries the file location. str() here would
+                # silently coerce bad input.
+                name=call.get("name"),  # type: ignore[arg-type]  # type: ignore[arg-type]
                     arguments={} if arguments is None else arguments,
                     id=call.get("id"),
                 )
@@ -632,7 +640,15 @@ def _parse_tools(
         try:
             specs.append(
                 ToolSpec(
-                    name=spec.get("name"),
+                    # Deliberately unchecked: ToolSpec.__post_init__
+                    # raises SchemaError for a missing or non-string
+                    # name, and that error carries the file location.
+                    # str() here would silently coerce bad input.
+                    # Deliberately unchecked: ToolSpec.__post_init__ raises
+                # SchemaError for a missing or non-string name, and that
+                # error carries the file location. str() here would
+                # silently coerce bad input.
+                name=spec.get("name"),  # type: ignore[arg-type]  # type: ignore[arg-type]
                     description=spec.get("description"),
                     parameters=spec.get("parameters") or spec.get("input_schema") or {},
                 )
@@ -710,7 +726,15 @@ def _parse_rubric(
         try:
             criteria.append(
                 Criterion(
-                    name=raw.get("name"),
+                    # Deliberately unchecked: Criterion.__post_init__
+                    # raises SchemaError for a missing or non-string
+                    # name, and that error carries the file location.
+                    # str() here would silently coerce bad input.
+                    # Deliberately unchecked: Criterion.__post_init__ raises
+                # SchemaError for a missing or non-string name, and that
+                # error carries the file location. str() here would
+                # silently coerce bad input.
+                name=raw.get("name"),  # type: ignore[arg-type]  # type: ignore[arg-type]
                     description=raw.get("description"),
                     weight=raw.get("weight", 1.0),
                 )

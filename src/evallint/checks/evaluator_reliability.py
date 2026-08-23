@@ -377,7 +377,11 @@ class EvaluatorReliability:
                 )
             return out
 
-        first = sum(1 for o in pairwise if o.chosen == o.presented_order[0])
+        first = sum(
+            1
+            for o in pairwise
+            if o.presented_order and o.chosen == o.presented_order[0]
+        )
         second = len(pairwise) - first
         p_value = mcnemar_exact_p(first, second)
         share = first / len(pairwise)

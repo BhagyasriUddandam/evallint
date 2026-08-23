@@ -1,6 +1,6 @@
 [project]
 name = "evallint"
-version = "0.15.0"
+version = "0.16.0"
 description = "Audits LLM eval datasets for the flaws that make evaluations silently lie."
 readme = "README.md"
 requires-python = ">=3.12"
@@ -24,6 +24,7 @@ classifiers = [
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Programming Language :: Python :: 3 :: Only",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
     "Topic :: Software Development :: Quality Assurance",
@@ -37,8 +38,11 @@ classifiers = [
 # else in a user's project.
 #
 # sentence-transformers is deliberately NOT here — see [optional-dependencies].
+# Core install: 3 MiB. numpy is NOT here on purpose -- it was 25 MiB of a
+# 28 MiB install and the only no-embeddings use was one median, now
+# statistics.median. It moved to [embeddings], where the similarity matrix
+# genuinely needs it and sentence-transformers pulls it in regardless.
 dependencies = [
-    "numpy>=2.0",
     "click>=8.1",
     "rich>=13.7",
 ]
@@ -50,7 +54,10 @@ dependencies = [
 # the tool. The check raises MissingEmbeddingsError with install instructions
 # if it is used without this extra, and DuplicateCheck(embedder=...) works
 # without it at all.
-embeddings = ["sentence-transformers>=3.0"]
+# numpy is listed explicitly rather than relied on transitively: the similarity
+# matrix is written against its API, so it is a direct dependency of this extra
+# even though sentence-transformers would install it anyway.
+embeddings = ["numpy>=2.0", "sentence-transformers>=3.0"]
 
 # A dependency-group, not an optional-dependency extra. uv installs default
 # groups on a plain `uv sync`, so `uv sync && uv run pytest` works on a fresh
@@ -67,6 +74,10 @@ embeddings = ["sentence-transformers>=3.0"]
 # injected scoring function.
 dev = [
     "pytest>=8.0",
+    # The package ships py.typed, which is a promise that its annotations are
+    # usable downstream. Shipping that promise untested is how it goes stale --
+    # a review found 12 errors after eleven releases.
+    "mypy>=1.11",
     "sentence-transformers>=3.0",
     "anthropic>=0.69",
     "httpx>=0.27",

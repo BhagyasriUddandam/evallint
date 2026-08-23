@@ -41,6 +41,8 @@ from .config import ConfigError, find_config, load_config
 from .io import LoadError, load_with_mapping
 from .report import render_text, to_dict
 
+__all__ = ["EXIT_GATE_TRIPPED", "EXIT_INCOMPLETE", "EXIT_OK", "main"]
+
 log = logging.getLogger(__name__)
 
 DISCRIMINATION_NOTE = (

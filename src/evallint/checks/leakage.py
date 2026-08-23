@@ -279,11 +279,11 @@ class LeakageCheck(Check):
 
         # Built once, used for both the findings and the stats, so the rendered
         # report and the JSON payload cannot disagree about what was found.
-        contained_leaks = [
+        detected = (
             detect_expected_in_input(case, self.min_answer_chars)
             for case in contained
-        ]
-        contained_leaks = [leak for leak in contained_leaks if leak is not None]
+        )
+        contained_leaks = [leak for leak in detected if leak is not None]
 
         share = len(contained) / len(answered)
         stats.update(

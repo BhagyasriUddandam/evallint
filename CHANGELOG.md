@@ -4,6 +4,82 @@ All notable changes to this project are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.16.0] — 2026-08-22
+
+Production-readiness review. Three real defects fixed, two unverified claims
+verified, one dependency removed.
+
+### Fixed — performance
+- **Redundancy detection allocated 1.5 GiB on 5000 cases.** The deterministic
+  levels are hash-based, but within a bucket the code materialised every pair,
+  so one large template family was O(b²) — and a templated eval IS one family.
+  Measured: 53.4 s / 1558 MiB at 5000 cases. Buckets above `MAX_BUCKET_PAIRS`
+  now link as a star, which produces the IDENTICAL connected component with
+  b-1 edges; a test proves cluster membership is unchanged on both sides of the
+  budget, and the truncation is reported rather than silent. Now **0.25 s /
+  2.2 MiB at 5000 cases** (214x faster, 708x less memory), and 10000 cases run
+  at all — 0.5 s / 4.5 MiB, where before they needed roughly 6 GiB.
+- Per-cluster level resolution was a second quadratic: it looped over every
+  ordered pair of members per cluster. Now one pass over the recorded pairs.
+- **The semantic level refuses an unaffordable matrix** instead of being
+  OOM-killed. `SemanticSetTooLargeError` above 15000 cases states the GiB the
+  n²×4 matrix would need. Deliberately NOT an `ImportError` subclass: nothing is
+  missing, and a caller branching on install problems must not confuse the two.
+
+### Fixed — types
+- **The package ships `py.typed` and had 12 mypy errors**, after eleven
+  releases. All were annotation imprecision rather than runtime bugs, and two
+  were name reuse defeating a correct `is None` narrowing. mypy is now clean
+  across all 27 modules, is in the dev group, and runs as a CI job — the
+  `py.typed` promise is checked rather than assumed.
+
+### Changed — dependency size (BREAKING for the install)
+- **numpy is no longer a core dependency.** It was 25 MiB of a 32 MiB install,
+  and the only use on the no-embeddings path was one median, now
+  `statistics.median` — verified identical to `np.median` over 2000 random
+  samples plus the odd, even and single-element cases. It moved to
+  `[embeddings]`, where the similarity matrix genuinely needs it.
+  **Core install: 32 MB → 10 MB.**
+- Asking for the semantic level without the extra now gives install
+  instructions, not a bare `No module named 'numpy'`.
+- CI enforces a 20 MB core budget and asserts numpy, torch and
+  sentence-transformers are all absent from a core install.
+
+### Added — Python 3.14
+`requires-python` has said `>=3.12` since 0.1.0, so 3.14 was already CLAIMED and
+never tested. Verified: 853 tests collect and 691 pass on a core-only 3.14
+install. Added to the classifiers and the CI matrix.
+
+### Added — API stability
+`tests/test_api_stability.py` pins all 63 public names. evallint is 0.x and may
+break, but not by accident: a rename or removal now fails with a prompt to write
+the changelog entry. Also asserts every submodule imports cleanly and declares
+`__all__` (`cli` did not).
+
+### Verified — no change needed
+- **No provider SDK, no environment variable, no network call anywhere in
+  `src/`.** Scorers, embedders and judges are all injected.
+- **Offline:** all four deterministic checks plus the audit and all three
+  renderers run with sockets blocked.
+- **Deterministic:** byte-identical JSON across runs; every stochastic entry
+  point takes a seed defaulting to 0.
+- **Privacy:** no log call emits case content.
+- **Coverage: 95%** over 3637 statements.
+- **Security:** no `eval`, `exec`, `pickle`, `subprocess` or `shell=True` in
+  `src/`; HTML output escapes untrusted case ids.
+- Four broad exception handlers, each guarding an injected callable or the CLI,
+  each recording the failure rather than swallowing it.
+
+### Fixed — a regression this review introduced and caught
+Moving numpy broke collection of four test modules on a core install, which
+would have failed the core CI job. Worse, a module-level `importorskip` fixed
+the error but changed the COLLECTED count, so the README's stated test total
+would have depended on which extras were installed. Now a `pytestmark` skip and
+an import-safe `parametrize` list: the collected count is 853 with or without
+numpy, verified on both.
+
+853 tests, up from 808.
+
 ## [0.15.0] — 2026-08-22
 
 ### Changed — documentation rewritten around what the methods support
@@ -1013,6 +1089,7 @@ First release.
   `embedder=` callable instead.
 - Not an eval runner. It audits the dataset that eval runners consume.
 
+[0.16.0]: https://github.com/BhagyasriUddandam/evallint/releases/tag/v0.16.0
 [0.15.0]: https://github.com/BhagyasriUddandam/evallint/releases/tag/v0.15.0
 [0.14.0]: https://github.com/BhagyasriUddandam/evallint/releases/tag/v0.14.0
 [0.13.0]: https://github.com/BhagyasriUddandam/evallint/releases/tag/v0.13.0

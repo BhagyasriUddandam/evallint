@@ -28,7 +28,9 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, macos-latest]
-        python: ["3.12", "3.13"]
+        # 3.14 added after a review verified it: requires-python has said
+        # ">=3.12" since 0.1.0, so 3.14 was already CLAIMED and never tested.
+        python: ["3.12", "3.13", "3.14"]
     steps:
       - uses: actions/checkout@v7
 
@@ -59,11 +61,21 @@ jobs:
         # fails here rather than surprising users with a 2GB download.
         shell: bash
         run: |
-          if .venv/bin/python -c "import torch" 2>/dev/null; then
-            echo "::error::torch is present in a CORE install — sentence-transformers leaked into [project.dependencies]"
+          for pkg in torch numpy sentence_transformers; do
+            if .venv/bin/python -c "import $pkg" 2>/dev/null; then
+              echo "::error::$pkg is present in a CORE install — it leaked into [project.dependencies]"
+              exit 1
+            fi
+          done
+          SIZE=$(du -sm .venv/lib/python*/site-packages | cut -f1)
+          echo "confirmed: no torch, numpy or sentence-transformers in core (${SIZE} MB)"
+          # numpy alone was 25 MB of a 32 MB install before it moved to the
+          # extra. A core install that grows past 20 MB means something heavy
+          # came back.
+          if [ "$SIZE" -gt 20 ]; then
+            echo "::error::core install is ${SIZE} MB, over the 20 MB budget"
             exit 1
           fi
-          echo "confirmed: no torch in the core install"
 
       - name: Record the exact environment
         # Added while chasing an intermittent macOS failure that turned out to
@@ -127,6 +139,26 @@ jobs:
   # One job with the optional extra, so the two end-to-end embedding tests
   # actually execute somewhere. Ubuntu + oldest supported Python is enough:
   # the thing under test is the model integration, not the platform.
+  types:
+    name: types (mypy)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v10.0.1
+        with:
+          enable-cache: true
+
+      - name: Install with the dev group
+        run: uv sync
+
+      - name: Type-check the shipped package
+        # The package ships py.typed, which promises downstream users that its
+        # annotations are usable. A review found 12 errors after eleven
+        # releases, so the promise is now checked rather than assumed.
+        run: uv run mypy src/evallint --ignore-missing-imports
+
   full:
     name: full (with [embeddings])
     runs-on: ubuntu-latest

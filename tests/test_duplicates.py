@@ -11,16 +11,32 @@ if it cannot be loaded.
 
 from __future__ import annotations
 
+import importlib.util
+
 import math
 from collections.abc import Sequence
 from pathlib import Path
 
-import numpy as np
 import pytest
 
 from evallint.checks import DuplicateCheck, MissingEmbeddingsError
 from evallint.io import load
 from evallint.schema import EvalCase, EvalSet
+
+# numpy moved to the [embeddings] extra when a review found it was 25 MiB of a
+# 32 MiB core install used for one median. The tests below build fake embedders
+# that return arrays, so they need it.
+#
+# `pytestmark` rather than `importorskip`: importorskip raises during COLLECTION,
+# which removes these tests from the collected count and makes the README's
+# stated test total depend on which extras happen to be installed. A skipif mark
+# collects them and skips them, so the count is stable everywhere.
+_HAS_NUMPY = importlib.util.find_spec("numpy") is not None
+pytestmark = pytest.mark.skipif(
+    not _HAS_NUMPY, reason="needs numpy from the [embeddings] extra"
+)
+if _HAS_NUMPY:
+    import numpy as np
 
 EXAMPLE_SET = Path(__file__).resolve().parents[1] / "examples" / "sample_evalset.jsonl"
 

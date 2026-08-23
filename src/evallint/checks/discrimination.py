@@ -354,7 +354,7 @@ class DiscriminationCheck(Check):
         # this is identical to the old behaviour.
         share = non_discriminating / n_measured if n_measured else 0.0
 
-        stats = {
+        stats: dict[str, Any] = {
             # n_cases is the number actually SCORED, so it stays consistent with
             # n_scorer_calls and every derived figure. n_cases_in_set is the
             # whole set, and the two differing is the signal that this was a
@@ -437,8 +437,9 @@ class DiscriminationCheck(Check):
                     case_ids=tuple(unstable),
                 )
             )
-        limited_share = stats["limited_evidence_share"]
-        lo, hi = stats["limited_evidence_interval"]
+        # stats is dict[str, Any], so these need naming to stay checkable.
+        limited_share = float(stats["limited_evidence_share"])
+        lo, hi = (float(x) for x in stats["limited_evidence_interval"])
         if limited_share > self.max_non_discriminating_share:
             findings.append(
                 Finding(
@@ -527,7 +528,7 @@ class DiscriminationCheck(Check):
             f"{n_limited} provide limited evidence ({limited_share:.0%})"
             + (f", {len(unstable)} not reproducible" if unstable else "")
         )
-        limitations = LIMITATIONS
+        limitations: tuple[str, ...] = LIMITATIONS
         if sampled:
             limitations = (
                 f"Only {n_cases} of {len(all_cases)} cases were scored "
