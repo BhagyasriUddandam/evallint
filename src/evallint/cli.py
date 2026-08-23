@@ -78,6 +78,54 @@ def _gate(results: list[CheckResult], fail_on: str) -> tuple[int, str]:
     return EXIT_OK, "gate: passed — no findings"
 
 
+def _emit_audit(
+    *,
+    eval_set,
+    results: list[CheckResult],
+    path: Path,
+    output_format: str,
+    out_path: Path | None,
+    detail: bool,
+    schema_notes: list[str],
+) -> None:
+    """Build and write the unified report.
+
+    The audit is composed from the results already computed above, so the
+    unified view and the legacy view can never disagree about what was found.
+    The three analyses that need a scorer, judges or repeated runs are not
+    passed, so they appear as NOT ASSESSED -- which is what they are from a
+    command line, and is reported rather than left as an empty section.
+    """
+    from .audit import render_html, render_terminal, run_audit, to_json
+
+    by_check = {r.check: r for r in results}
+    report = run_audit(
+        eval_set,
+        imbalance=by_check.get("imbalance"),
+        leakage=by_check.get("leakage"),
+        ground_truth=by_check.get("ground_truth"),
+        redundancy=by_check.get("redundancy") or by_check.get("duplicates"),
+        source=str(path),
+    )
+
+    if output_format == "terminal":
+        if out_path is not None:
+            with out_path.open("w", encoding="utf-8") as handle:
+                render_terminal(
+                    report, console=Console(file=handle, width=100), detail=detail
+                )
+        else:
+            render_terminal(report, detail=detail)
+        return
+
+    text = to_json(report) if output_format == "json" else render_html(report)
+    if out_path is not None:
+        out_path.write_text(text, encoding="utf-8")
+        click.echo(f"wrote {output_format} report to {out_path}", err=True)
+    else:
+        click.echo(text)
+
+
 @click.command(context_settings={"help_option_names": ["-h", "--help"]})
 @click.argument(
     "path", type=click.Path(exists=True, dir_okay=False, path_type=Path)
@@ -153,6 +201,30 @@ def _gate(results: list[CheckResult], fail_on: str) -> tuple[int, str]:
     "inferred automatically; use this when inference is ambiguous or wrong.",
 )
 @click.option(
+    "--format",
+    "output_format",
+    type=click.Choice(["terminal", "json", "html"]),
+    default=None,
+    help="Emit the unified audit report: eleven sections, with each finding "
+    "carrying severity, evidence tier, affected cases, explanation, limitation "
+    "and recommended action. 'terminal' stays concise; 'json' and 'html' carry "
+    "everything. HTML sections are expandable and include case-level detail. "
+    "There is deliberately no overall quality score in any format.",
+)
+@click.option(
+    "--out",
+    "out_path",
+    type=click.Path(dir_okay=False, path_type=Path),
+    help="Write the report to this file instead of stdout. Required in "
+    "practice for --format html.",
+)
+@click.option(
+    "--detail",
+    is_flag=True,
+    help="With --format terminal, also print each finding's explanation, "
+    "limitation and recommended action rather than just its evidence.",
+)
+@click.option(
     "--migrate-to",
     "migrate_to",
     type=click.Path(dir_okay=False, path_type=Path),
@@ -199,6 +271,9 @@ def main(
     leakage_overlap: bool,
     compare: str,
     field_map: tuple[str, ...],
+    output_format: str | None,
+    out_path: Path | None,
+    detail: bool,
     migrate_to: Path | None,
     overwrite: bool,
     config_path: Path | None,
@@ -362,7 +437,17 @@ def main(
 
     code, explanation = _gate(results, fail_on)
 
-    if as_json:
+    if output_format is not None:
+        _emit_audit(
+            eval_set=eval_set,
+            results=results,
+            path=path,
+            output_format=output_format,
+            out_path=out_path,
+            detail=detail,
+            schema_notes=schema_notes,
+        )
+    elif as_json:
         payload = to_dict(
             results, source=str(path), notes=notes, schema_notes=schema_notes
         )

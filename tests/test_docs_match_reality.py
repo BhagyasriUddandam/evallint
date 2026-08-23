@@ -121,3 +121,53 @@ def test_the_supported_versions_claim_matches_the_code() -> None:
         "README, which both quote the supported set."
     )
     assert "supported versions: 1, 2" in SCHEMA_DOC.read_text()
+
+
+# --------------------------------------------------------------------------
+# The unified audit report
+# --------------------------------------------------------------------------
+
+AUDIT_DOC = ROOT / "docs" / "audit-report.md"
+
+
+def test_the_audit_doc_states_the_real_test_count_for_itself() -> None:
+    """The doc claims a number of audit tests. Same reasoning as the README
+    count: a stale number is a false claim in published documentation."""
+    import re as _re
+    import subprocess as _sub
+
+    stated = _re.search(r"Yes — (\d+) tests", AUDIT_DOC.read_text())
+    assert stated, "docs/audit-report.md no longer states its test count"
+    result = _sub.run(
+        [sys.executable, "-m", "pytest", "--collect-only", "-q",
+         str(ROOT / "tests" / "test_audit.py")],
+        capture_output=True, text=True, cwd=ROOT,
+    )
+    actual = int(_re.search(r"(\d+)\s+tests?\s+collected", result.stdout).group(1))
+    assert int(stated.group(1)) == actual, (
+        f"docs/audit-report.md claims {stated.group(1)} audit tests, "
+        f"test_audit.py collects {actual}"
+    )
+
+
+def test_every_tier_is_documented() -> None:
+    from evallint.audit import Tier
+
+    text = AUDIT_DOC.read_text()
+    missing = [t.value for t in Tier if f"`{t.value.upper()}`" not in text
+               and f"`{t.value}`" not in text]
+    assert not missing, f"undocumented tiers: {missing}"
+
+
+def test_every_analysis_section_is_documented() -> None:
+    from evallint.audit import ANALYSIS_SECTIONS
+
+    text = AUDIT_DOC.read_text()
+    missing = [k for k in ANALYSIS_SECTIONS if k not in text]
+    assert not missing, f"undocumented sections: {missing}"
+
+
+def test_the_readme_documents_the_format_flags() -> None:
+    text = README.read_text()
+    for flag in ("--format terminal", "--format json", "--format html", "--detail"):
+        assert flag in text, f"{flag} is not mentioned in the README"

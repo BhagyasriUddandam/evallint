@@ -74,6 +74,17 @@ from .mapping import (
     MappingError,
     resolve_mapping,
 )
+from .audit import (
+    AuditFinding,
+    AuditReport,
+    AuditSection,
+    SectionStatus,
+    Tier,
+    render_html,
+    render_terminal,
+    run_audit,
+)
+from .audit import to_json as audit_to_json
 from .migrate import MigrationError, MigrationReport, migrate_file
 from .report import render_text, to_dict
 from .schema import (
@@ -126,6 +137,16 @@ __all__ = [
     # migration
     "MigrationReport",
     "migrate_file",
+    # unified audit report
+    "AuditFinding",
+    "AuditReport",
+    "AuditSection",
+    "SectionStatus",
+    "Tier",
+    "audit_to_json",
+    "render_html",
+    "render_terminal",
+    "run_audit",
     # column mapping (real eval sets do not use evallint's field names)
     "FieldMapping",
     "resolve_mapping",

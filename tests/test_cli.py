@@ -554,3 +554,84 @@ def test_chat_cases_in_an_undeclared_file_prompt_for_a_version(tmp_path) -> None
     flat = " ".join(result.stdout.split())
     assert "evallint_schema" in flat
     assert "read as conversations" in flat
+
+
+# --------------------------------------------------------------------------
+# The unified audit report
+# --------------------------------------------------------------------------
+
+
+def test_format_terminal_shows_not_assessed_rather_than_a_pass() -> None:
+    """From a command line, three of the seven analyses cannot run. The report
+    must say so, because an empty section reads as a clean one."""
+    result = run(str(EXAMPLE_SET), "--skip-duplicates", "--format", "terminal")
+
+    flat = " ".join(result.stdout.split())
+    assert "Executive summary" in flat
+    assert "NOT ASSESSED" in flat
+    for missing in ("Discrimination", "Evaluator reliability", "Reproducibility"):
+        assert missing in flat
+
+
+def test_format_terminal_reports_no_overall_score() -> None:
+    result = run(str(EXAMPLE_SET), "--skip-duplicates", "--format", "terminal")
+
+    assert "No overall score is reported" in " ".join(result.stdout.split())
+
+
+def test_format_json_is_parseable_and_has_the_requested_sections() -> None:
+    result = run(str(EXAMPLE_SET), "--skip-duplicates", "--format", "json")
+
+    payload = json.loads(result.stdout)
+    assert payload["n_cases"] == 20
+    assert {"executive_summary", "critical_findings", "warnings",
+            "recommendations", "evidence_coverage", "sections"} <= set(payload)
+    keys = {s["key"] for s in payload["sections"]}
+    assert {"dataset_statistics", "redundancy", "discrimination", "ground_truth",
+            "evaluator_reliability", "statistical_reliability",
+            "reproducibility"} == keys
+
+
+def test_format_html_writes_a_self_contained_file(tmp_path) -> None:
+    out = tmp_path / "report.html"
+
+    result = run(
+        str(EXAMPLE_SET), "--skip-duplicates", "--format", "html",
+        "--out", str(out),
+    )
+
+    assert result.exit_code == 0
+    markup = out.read_text(encoding="utf-8")
+    assert markup.startswith("<!DOCTYPE html>")
+    assert "<details>" in markup
+    assert "<script" not in markup
+    # Progress goes to stderr so `--format html` piped to a file stays clean.
+    assert "wrote html report" in result.stderr
+
+
+def test_format_json_to_stdout_stays_clean_with_verbose(tmp_path) -> None:
+    """Same contract as the legacy --json: logging must not corrupt stdout."""
+    result = run(str(EXAMPLE_SET), "--skip-duplicates", "--format", "json", "-v")
+
+    json.loads(result.stdout)  # must not raise
+    assert result.stderr
+
+
+def test_the_unified_report_and_the_legacy_report_agree_on_findings() -> None:
+    """Both are built from the same CheckResults, so they cannot disagree. This
+    pins that: a finding in one must be a finding in the other."""
+    legacy = json.loads(
+        run(str(EXAMPLE_SET), "--skip-duplicates", "--json").stdout
+    )
+    unified = json.loads(
+        run(str(EXAMPLE_SET), "--skip-duplicates", "--format", "json").stdout
+    )
+    legacy_messages = {
+        f["message"] for c in legacy["checks"] for f in c["findings"]
+    }
+    unified_evidence = {
+        f["evidence"]
+        for key in ("critical_findings", "warnings")
+        for f in unified[key]
+    }
+    assert legacy_messages == unified_evidence

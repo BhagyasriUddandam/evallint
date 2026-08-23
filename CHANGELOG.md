@@ -4,6 +4,96 @@ All notable changes to this project are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.13.0] — 2026-08-22
+
+### Added
+
+**The unified audit report.** Eleven sections, three formats
+(`--format terminal|json|html`), and deliberately **no overall score**.
+
+**What replaces the score.** An "Eval Trust Score: 78/100" would need a weight
+for redundancy against a weight for an unmeasured judge, and no defensible
+source for either number exists. So the report publishes `evidence_coverage`
+instead: which analyses produced evidence, and which did not and what it would
+take. Two tests exist purely to make adding a score fail — no key anywhere in
+the JSON may read as a grade, and `AuditReport` may not gain a `score`
+attribute.
+
+**The evidence tier is enforced, not documented.** Designed in
+`docs/architecture-v2.md` and implemented here for the first time. Every finding
+is OBSERVED (a census, exact), HEURISTIC (a chosen threshold, no sampling
+theory) or ESTIMATED (an interval and stated assumptions). Two rules raise in
+`__post_init__`: an OBSERVED finding may not carry a confidence, because a count
+is exact and attaching "HIGH" implies a doubt that does not exist; a HEURISTIC
+finding must carry one, because a threshold-derived signal without a confidence
+reads as a fact. Recommendations sort weakest-tier-first, so nobody acts on a
+cosine threshold thinking it was a count.
+
+**"Not assessed" is structurally distinct from "nothing found."** A section that
+could not run is NOT_RUN with a reason naming the exact call to make; it may not
+carry findings, and a reason is required. Four of seven analyses run from a file
+alone, so from a CLI the other three are always NOT ASSESSED — reported in every
+format, never truncated, and the executive summary says a conclusion is
+"unsupported in those respects" rather than "supported with caveats". Collapsing
+those two states is the exact defect this package reports in eval sets, and it
+was present in evallint's own reporting until now.
+
+**Findings derived from the absence of evidence**, which is the part that does
+not exist in other reporting tools. A judge metric the reliability module
+REFUSED to compute becomes a finding, because an absent reliability measure is
+not a passing one. So does an unidentifiable variance source: unmeasured is not
+zero, and reporting 0.0 would claim a stability never measured. Both are
+OBSERVED — whether a metric was computed is a fact about the design, not an
+estimate.
+
+**No threshold is invented at the reporting layer.** There is no "agreement too
+low" finding, because setting that bar would be the arbitrary cutoff this report
+exists to avoid. Computed metrics go into `stats` with the value, interval and
+interpretation their own analyser wrote. Model comparison uses the analyser's own
+`underpowered` / `no_information` verdicts, since a detected difference is a
+result rather than a defect.
+
+**Sections 1, 2, 3 and 11 are derived views**, computed from sections 4-10 rather
+than written, so a finding cannot appear in "critical findings" phrased
+differently from how it appears in its own section. A test asserts the unified
+report and the legacy report contain exactly the same set of findings.
+
+**Leakage shares section 7** with ground truth. The eleven requested sections
+have no leakage entry and dropping the analyser would have lost information the
+CLI already reports; both answer "can this case be scored as intended", since an
+under-specified reference and an answer sitting in the prompt are two ways for
+the answer to fail to test what you meant. The grouping is stated in the section
+summary.
+
+**Formats.** `terminal` truncates case ids and omits statistics, bounded by a
+test at under 120 lines; `--detail` adds the prose fields. `json` carries
+everything. `html` is one self-contained file using `<details>` — no CDN, no
+framework, no JavaScript, because a report that fails to render when a CDN moves
+is worse than a plain one. Case ids are HTML-escaped: they come from a user's
+file, and a test asserts `<script>alert('x')</script>` as a case id cannot
+execute.
+
+`render_text` and `to_dict` gained a `schema_notes` argument in 0.12.0; the
+legacy `--json` output is otherwise unchanged. 63 exports, up from 54.
+
+### Fixed
+- The three report adapters read `report.warnings` and `report.summary` via
+  `getattr(..., default)`, but `ReliabilityReport`, `ComparisonReport` and
+  `ReproducibilityReport` expose neither — they expose `notes`. Every one of
+  those sections would have rendered as ASSESSED with zero findings while the
+  underlying analysis had warnings, which is precisely the silent pass the
+  module docstring rails against. The adapters now read each report's actual
+  structure: refused metrics, unidentifiable variance sources, unstable
+  rankings, and per-pair verdicts.
+
+### Tests
+38 new in `test_audit.py`, all deterministic — no sampling and no model call in
+the report layer, so the same input gives byte-identical output. Two fixture
+errors were corrected after running them: a leakage fixture whose answers were
+under the detector's 12-character floor, and a truncation test whose largest
+finding covered 2 cases so `max_cases=2` could never truncate — it would have
+passed for the wrong reason.
+
 ## [0.12.0] — 2026-08-22
 
 ### Added
@@ -787,6 +877,7 @@ First release.
   `embedder=` callable instead.
 - Not an eval runner. It audits the dataset that eval runners consume.
 
+[0.13.0]: https://github.com/BhagyasriUddandam/evallint/releases/tag/v0.13.0
 [0.12.0]: https://github.com/BhagyasriUddandam/evallint/releases/tag/v0.12.0
 [0.11.0]: https://github.com/BhagyasriUddandam/evallint/releases/tag/v0.11.0
 [0.10.0]: https://github.com/BhagyasriUddandam/evallint/releases/tag/v0.10.0

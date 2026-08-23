@@ -428,6 +428,85 @@ exited 3 and said so. Schema 2 fixes it; `conversation`, `turns`, `dialogue`,
 `chat` and `chat_history` are now aliases for `messages`, and MT-Bench loads
 and audits. See [Chat, rubrics and tool calls](#chat-rubrics-and-tool-calls).
 
+### The unified audit report
+
+```bash
+evallint evalset.jsonl --format terminal          # concise, eleven sections
+evallint evalset.jsonl --format json --out r.json # everything, nothing truncated
+evallint evalset.jsonl --format html --out r.html # expandable, case-level detail
+```
+
+**There is no overall score, in any format.** An "Eval Trust Score: 78/100"
+would need a weight for redundancy against a weight for an unmeasured judge, and
+there is no defensible source for either number. Two tests exist purely to make
+adding one fail: no key anywhere in the JSON may read as a grade, and
+`AuditReport` may not gain a `score` attribute.
+
+What replaces it is the thing a score would have compressed:
+
+```json
+"evidence_coverage": {
+  "analyses_available": 7,
+  "analyses_with_evidence": ["dataset_statistics", "ground_truth"],
+  "analyses_without_evidence": {
+    "discrimination": "needs a scoring function that runs your models ...",
+    "evaluator_reliability": "needs repeated judge verdicts on the same cases ...",
+    "reproducibility": "needs the SAME eval run more than once ..."
+  }
+}
+```
+
+Four of the seven analyses run from the file alone. The other three need model
+runs, judges or repeated runs, so from a CLI they are always **NOT ASSESSED** —
+reported in every format and never truncated, because "nothing was found" and
+"nobody looked" are opposite states and collapsing them is the exact defect this
+tool reports in eval sets. The executive summary says a conclusion is
+"unsupported in those respects", not "supported with caveats".
+
+Every finding carries seven fields — severity, evidence tier, confidence,
+evidence, affected cases, explanation, limitation, recommended action — and all
+seven are required at construction. The `limitation` is the **source analyser's
+own**, not one written at the reporting layer, which could contradict it.
+
+The tier is what carries the weight, and it is enforced rather than documented:
+
+| Tier | What it is | Confidence |
+|---|---|---|
+| `observed` | A census. Counting, not inference. | **must be absent** — a count is exact |
+| `heuristic` | A chosen threshold, no sampling theory. | **required** — else it reads as fact |
+| `estimated` | An estimate with an interval and assumptions. | the interval |
+
+Constructing an `observed` finding with a confidence raises, and so does a
+`heuristic` one without. Recommendations sort **weakest tier first**, so nobody
+acts on a cosine threshold thinking it was a count.
+
+The part that does not exist elsewhere: **findings derived from the absence of
+evidence.** A judge metric that could not be computed becomes a finding, because
+an absent reliability measure is not a passing one. So does an unidentifiable
+variance source — unmeasured is not zero.
+
+```
+[observed] evaluator_stochasticity is not identifiable: 0 judge(s) recorded
+    explanation: This design cannot separate that source of variance, so its
+                 contribution is unknown rather than zero.
+```
+
+No threshold is invented at this layer. There is no "agreement too low" finding,
+because setting that bar would be the arbitrary cutoff the report exists to
+avoid; model comparison uses the analyser's own `underpowered` /
+`no_information` verdicts, since a detected difference is a result, not a defect.
+
+`--format terminal` truncates case ids and omits raw statistics; `--detail`
+adds each finding's explanation, limitation and recommended action. What is
+never truncated in any format is the NOT ASSESSED list.
+
+HTML is a single self-contained file — `<details>` for expandable sections, no
+CDN, no framework, **no JavaScript**. An audit artefact should still open in five
+years, and case ids are HTML-escaped because they come from your file.
+
+Full detail, including the ten-question gate this feature was held to:
+**[docs/audit-report.md](docs/audit-report.md)**.
+
 ### Chat, rubrics and tool calls
 
 The four-field format is still the whole schema. A file written for evallint 0.1
@@ -929,7 +1008,7 @@ runner.
 ## Development
 
 ```bash
-uv run pytest    # 685 tests
+uv run pytest    # 733 tests
 ```
 
 Every check is tested both ways: it must **fire on known-bad input** and **stay quiet on
