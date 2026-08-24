@@ -3,7 +3,7 @@
   "reportable": false,
   "semantic_level_requested": false,
   "environment": {
-    "evallint_version": "0.13.0",
+    "evallint_version": "0.16.0",
     "python": "3.13.12",
     "platform": "macOS-26.5.2-arm64-arm-64bit-Mach-O",
     "machine": "arm64",
@@ -27,11 +27,11 @@
         "f1": 1.0
       },
       "timing": {
-        "seconds_best": 0.000165,
-        "seconds_median": 0.000165,
+        "seconds_best": 0.000167,
+        "seconds_median": 0.000178,
         "repeats": 3,
-        "ms_per_item": 0.0082,
-        "python_peak_kib": 12.7,
+        "ms_per_item": 0.0083,
+        "python_peak_kib": 13.0,
         "python_peak_caveat": "tracemalloc only: excludes numpy and torch buffers, so this undercounts the embedding path by orders of magnitude. Comparable between runs, not an absolute footprint."
       },
       "near_miss_check": {
@@ -64,10 +64,10 @@
         "f1": null
       },
       "timing": {
-        "seconds_best": 0.000127,
-        "seconds_median": 0.000135,
+        "seconds_best": 0.000119,
+        "seconds_median": 0.00012,
         "repeats": 3,
-        "ms_per_item": 0.0055,
+        "ms_per_item": 0.0052,
         "python_peak_kib": 7.8,
         "python_peak_caveat": "tracemalloc only: excludes numpy and torch buffers, so this undercounts the embedding path by orders of magnitude. Comparable between runs, not an absolute footprint."
       },
@@ -213,11 +213,11 @@
         }
       },
       "timing": {
-        "seconds_best": 0.000185,
-        "seconds_median": 0.000185,
+        "seconds_best": 0.000192,
+        "seconds_median": 0.000194,
         "repeats": 3,
-        "ms_per_item": 0.0154,
-        "python_peak_kib": 11.3,
+        "ms_per_item": 0.016,
+        "python_peak_kib": 11.6,
         "python_peak_caveat": "tracemalloc only: excludes numpy and torch buffers, so this undercounts the embedding path by orders of magnitude. Comparable between runs, not an absolute footprint."
       },
       "near_miss_check": {
@@ -354,10 +354,10 @@
         }
       },
       "timing": {
-        "seconds_best": 0.000109,
-        "seconds_median": 0.000112,
+        "seconds_best": 0.000107,
+        "seconds_median": 0.000109,
         "repeats": 3,
-        "ms_per_item": 0.0072,
+        "ms_per_item": 0.0071,
         "python_peak_kib": 5.9,
         "python_peak_caveat": "tracemalloc only: excludes numpy and torch buffers, so this undercounts the embedding path by orders of magnitude. Comparable between runs, not an absolute footprint."
       },
@@ -430,14 +430,66 @@
         }
       },
       "timing": {
-        "seconds_best": 0.000137,
-        "seconds_median": 0.000137,
+        "seconds_best": 0.000129,
+        "seconds_median": 0.000129,
         "repeats": 1,
-        "ms_per_item": 0.0068,
+        "ms_per_item": 0.0065,
         "python_peak_kib": 14.5,
         "python_peak_caveat": "tracemalloc only: excludes numpy and torch buffers, so this undercounts the embedding path by orders of magnitude. Comparable between runs, not an absolute footprint."
       },
       "confusions": []
+    },
+    "coverage_gaps": {
+      "unit": "cell of the declared space",
+      "label_basis": "OBJECTIVE BY CONSTRUCTION: the fixture decides how many cases land in each cell, so an empty cell is a fact rather than a judgement",
+      "n_cases": 17,
+      "n_cells": 12,
+      "confusion": {
+        "tp": 8,
+        "fp": 0,
+        "fn": 0,
+        "tn": 4,
+        "n_items": 12,
+        "precision": 1.0,
+        "recall": 1.0,
+        "false_positive_rate": 0.0,
+        "false_negative_rate": 0.0,
+        "f1": 1.0
+      },
+      "empty_cell_detection": {
+        "tp": 8,
+        "fp": 0,
+        "fn": 0,
+        "tn": 4,
+        "n_items": 12,
+        "precision": 1.0,
+        "recall": 1.0,
+        "false_positive_rate": 0.0,
+        "false_negative_rate": 0.0,
+        "f1": 1.0
+      },
+      "thin_cell_detection": {
+        "tp": 2,
+        "fp": 0,
+        "fn": 0,
+        "tn": 10,
+        "n_items": 12,
+        "precision": 1.0,
+        "recall": 1.0,
+        "false_positive_rate": 0.0,
+        "false_negative_rate": 0.0,
+        "f1": 1.0
+      },
+      "occupancy_reported": 0.3333333333333333,
+      "occupancy_expected": 0.3333,
+      "timing": {
+        "seconds_best": 3.5e-05,
+        "seconds_median": 3.9e-05,
+        "repeats": 3,
+        "ms_per_item": 0.0021,
+        "python_peak_kib": 9.1,
+        "python_peak_caveat": "tracemalloc only: excludes numpy and torch buffers, so this undercounts the embedding path by orders of magnitude. Comparable between runs, not an absolute footprint."
+      }
     },
     "judge_instability": {
       "unit": "judge panel",
@@ -451,10 +503,10 @@
           "n_items": 60,
           "n_judges": 3,
           "timing": {
-            "seconds_best": 0.000277,
-            "seconds_median": 0.000277,
+            "seconds_best": 0.000263,
+            "seconds_median": 0.000263,
             "repeats": 1,
-            "ms_per_item": 0.0046,
+            "ms_per_item": 0.0044,
             "python_peak_kib": 39.1,
             "python_peak_caveat": "tracemalloc only: excludes numpy and torch buffers, so this undercounts the embedding path by orders of magnitude. Comparable between runs, not an absolute footprint."
           }
@@ -467,10 +519,10 @@
           "n_items": 60,
           "n_judges": 3,
           "timing": {
-            "seconds_best": 0.000318,
-            "seconds_median": 0.000318,
+            "seconds_best": 0.000252,
+            "seconds_median": 0.000252,
             "repeats": 1,
-            "ms_per_item": 0.0053,
+            "ms_per_item": 0.0042,
             "python_peak_kib": 39.1,
             "python_peak_caveat": "tracemalloc only: excludes numpy and torch buffers, so this undercounts the embedding path by orders of magnitude. Comparable between runs, not an absolute footprint."
           }
@@ -483,10 +535,10 @@
           "n_items": 60,
           "n_judges": 3,
           "timing": {
-            "seconds_best": 0.000274,
-            "seconds_median": 0.000274,
+            "seconds_best": 0.000252,
+            "seconds_median": 0.000252,
             "repeats": 1,
-            "ms_per_item": 0.0046,
+            "ms_per_item": 0.0042,
             "python_peak_kib": 39.1,
             "python_peak_caveat": "tracemalloc only: excludes numpy and torch buffers, so this undercounts the embedding path by orders of magnitude. Comparable between runs, not an absolute footprint."
           }
@@ -499,10 +551,10 @@
           "n_items": 60,
           "n_judges": 3,
           "timing": {
-            "seconds_best": 0.000278,
-            "seconds_median": 0.000278,
+            "seconds_best": 0.000243,
+            "seconds_median": 0.000243,
             "repeats": 1,
-            "ms_per_item": 0.0046,
+            "ms_per_item": 0.0041,
             "python_peak_kib": 39.1,
             "python_peak_caveat": "tracemalloc only: excludes numpy and torch buffers, so this undercounts the embedding path by orders of magnitude. Comparable between runs, not an absolute footprint."
           }
@@ -515,10 +567,10 @@
           "n_items": 60,
           "n_judges": 3,
           "timing": {
-            "seconds_best": 0.000255,
-            "seconds_median": 0.000255,
+            "seconds_best": 0.000248,
+            "seconds_median": 0.000248,
             "repeats": 1,
-            "ms_per_item": 0.0043,
+            "ms_per_item": 0.0041,
             "python_peak_kib": 39.1,
             "python_peak_caveat": "tracemalloc only: excludes numpy and torch buffers, so this undercounts the embedding path by orders of magnitude. Comparable between runs, not an absolute footprint."
           }
@@ -546,10 +598,10 @@
             "underpowered": 150
           },
           "timing_one_trial": {
-            "seconds_best": 0.001901,
-            "seconds_median": 0.001901,
+            "seconds_best": 0.001709,
+            "seconds_median": 0.001709,
             "repeats": 1,
-            "ms_per_item": 0.0317,
+            "ms_per_item": 0.0285,
             "python_peak_kib": 9.9,
             "python_peak_caveat": "tracemalloc only: excludes numpy and torch buffers, so this undercounts the embedding path by orders of magnitude. Comparable between runs, not an absolute footprint."
           },
@@ -566,10 +618,10 @@
             "underpowered": 145
           },
           "timing_one_trial": {
-            "seconds_best": 0.001912,
-            "seconds_median": 0.001912,
+            "seconds_best": 0.001788,
+            "seconds_median": 0.001788,
             "repeats": 1,
-            "ms_per_item": 0.0319,
+            "ms_per_item": 0.0298,
             "python_peak_kib": 9.9,
             "python_peak_caveat": "tracemalloc only: excludes numpy and torch buffers, so this undercounts the embedding path by orders of magnitude. Comparable between runs, not an absolute footprint."
           },
@@ -585,10 +637,10 @@
             "underpowered": 86
           },
           "timing_one_trial": {
-            "seconds_best": 0.00192,
-            "seconds_median": 0.00192,
+            "seconds_best": 0.001826,
+            "seconds_median": 0.001826,
             "repeats": 1,
-            "ms_per_item": 0.032,
+            "ms_per_item": 0.0304,
             "python_peak_kib": 9.9,
             "python_peak_caveat": "tracemalloc only: excludes numpy and torch buffers, so this undercounts the embedding path by orders of magnitude. Comparable between runs, not an absolute footprint."
           },

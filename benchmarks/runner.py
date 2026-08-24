@@ -43,6 +43,7 @@ from .fixtures import (
     Fixture,
     Split,
     ambiguity_fixture,
+    coverage_fixture,
     discrimination_fixture,
     exact_duplicate_fixture,
     imbalance_fixtures,
@@ -402,6 +403,51 @@ def bench_discrimination(split: Split, **_: Any) -> dict[str, Any]:
 
 
 # --------------------------------------------------------------------------
+# Coverage gaps
+# --------------------------------------------------------------------------
+
+
+def bench_coverage(split: Split, **_: Any) -> dict[str, Any]:
+    """Two classifications over the same universe of cells: empty and thin.
+
+    Scored separately because they are different claims -- "no cases here" and
+    "too few cases here to quote a rate" -- and a detector could get one right
+    while getting the other wrong.
+    """
+    from evallint.checks.coverage import CoverageCheck
+
+    fixture = coverage_fixture(split)
+    check = CoverageCheck(fixture.spec)
+    m = measure(lambda: check.run(fixture.eval_set), n_items=len(fixture.eval_set))
+    stats = m.result.stats
+
+    empty = score_sets(
+        set(stats["empty_cells"]), fixture.empty_cells, fixture.all_cells
+    )
+    thin = score_sets(
+        set(stats["thin_cells"]), fixture.thin_cells, fixture.all_cells
+    )
+    return {
+        "unit": "cell of the declared space",
+        "label_basis": "OBJECTIVE BY CONSTRUCTION: the fixture decides how many "
+        "cases land in each cell, so an empty cell is a fact rather than a "
+        "judgement",
+        "n_cases": len(fixture.eval_set),
+        "n_cells": len(fixture.all_cells),
+        "confusion": empty.as_dict(),
+        "empty_cell_detection": empty.as_dict(),
+        "thin_cell_detection": thin.as_dict(),
+        "occupancy_reported": stats["occupancy"],
+        "occupancy_expected": round(
+            (len(fixture.all_cells) - len(fixture.empty_cells))
+            / len(fixture.all_cells),
+            4,
+        ),
+        "timing": m.as_dict(),
+    }
+
+
+# --------------------------------------------------------------------------
 # 8. Judge instability
 # --------------------------------------------------------------------------
 
@@ -540,6 +586,7 @@ ALL_DETECTORS: dict[str, Callable[..., dict[str, Any]]] = {
     "leakage": bench_leakage,
     "ambiguous_references": bench_ambiguity,
     "ceiling_floor_discrimination": bench_discrimination,
+    "coverage_gaps": bench_coverage,
     "judge_instability": bench_judge_stability,
     "statistical_noise": bench_statistical_noise,
 }

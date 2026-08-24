@@ -4,8 +4,8 @@
 
 Registered detector names, for `--only`:
 `exact_duplicates`, `semantic_duplicates`, `class_imbalance`, `leakage`,
-`ambiguous_references`, `ceiling_floor_discrimination`, `judge_instability`,
-`statistical_noise`.
+`ambiguous_references`, `coverage_gaps`, `ceiling_floor_discrimination`,
+`judge_instability`, `statistical_noise`.
 
 ```bash
 python -m benchmarks.runner --split test                    # reportable numbers
@@ -36,7 +36,7 @@ metrics:
 
 | Basis | Categories | What a high score means |
 |---|---|---|
-| **Objective by construction** | exact duplicates, ceiling/floor/separating, statistical noise | The detector is correct. A label error would be a bug in `fixtures.py`. |
+| **Objective by construction** | exact duplicates, ceiling/floor/separating, statistical noise, coverage gaps | The detector is correct. A label error would be a bug in `fixtures.py`. |
 | **Definitional** | leakage | The implementation matches its own rule. Says *nothing* about whether the rule is a good proxy. |
 | **Author judgement** | semantic duplicates, ambiguous references | Precision *against these labels*. A second annotator would move some. |
 
@@ -77,6 +77,8 @@ Deterministic detectors, `--split test`:
 | class imbalance | dataset | 1.000 | 0.667 | — | 0.000 | 0.333 | — |
 | leakage | case | 0.667 | 1.000 | 0.800 | 0.250 | 0.000 | 0.019 |
 | ambiguous references | case | 1.000 | 0.667 | 0.800 | 0.000 | 0.333 | 0.008 |
+| coverage gaps (empty cells) | cell | 1.000 | 1.000 | 1.000 | 0.000 | 0.000 | 0.002 |
+| coverage gaps (thin cells) | cell | 1.000 | 1.000 | 1.000 | 0.000 | 0.000 | — |
 
 With `--semantic` (adds the embedding level):
 

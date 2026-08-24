@@ -40,6 +40,11 @@ KNOWN_KEYS: dict[str, type | tuple[type, ...]] = {
     "min_class_share": (int, float),
     "min_class_count": int,
     "fail_on": str,
+    # A nested table, not a scalar. The coverage spec is a DECLARATION about
+    # what your eval is meant to span, so it belongs in version control and gets
+    # reviewed like code -- there is no sensible command-line form for it, and
+    # inventing one would encourage typing the reference by hand each run.
+    "coverage": dict,
 }
 
 _FAIL_ON_VALUES = ("never", "warning", "any")
@@ -120,6 +125,10 @@ def load_config(path: Path) -> dict[str, Any]:
                 f"{type(value).__name__}"
             )
 
+    coverage = section.get("coverage")
+    if coverage is not None:
+        _validate_coverage(coverage, where)
+
     fail_on = section.get("fail_on")
     if fail_on is not None and fail_on not in _FAIL_ON_VALUES:
         raise ConfigError(
@@ -129,6 +138,60 @@ def load_config(path: Path) -> dict[str, Any]:
 
     log.debug("loaded %d setting(s) from %s", len(section), where)
     return dict(section)
+
+
+#: Keys allowed inside [coverage]. Same reasoning as KNOWN_KEYS: a typo that is
+#: silently ignored means a team believes a coverage space is declared when it
+#: is not, and the resulting occupancy figure is about a different space.
+_COVERAGE_KEYS: dict[str, type | tuple[type, ...]] = {
+    "dimensions": dict,
+    "reference": dict,
+    "impossible": list,
+    "min_cell": int,
+    "max_divergence": (int, float),
+}
+
+
+def _validate_coverage(section: Any, where: str) -> None:
+    """Shape-check [coverage] before the check builds a spec from it.
+
+    Only shape. The spec's own `__post_init__` enforces the semantics -- an axis
+    with one level, a typo in `impossible`, a reference naming a cell the
+    dimensions cannot produce -- because those rules must hold for a
+    hand-constructed spec too.
+    """
+    if not isinstance(section, dict):
+        raise ConfigError(f"{where}: [coverage] must be a table")
+
+    unknown = sorted(set(section) - set(_COVERAGE_KEYS))
+    if unknown:
+        raise ConfigError(
+            f"{where}: unknown key(s) in [coverage]: {', '.join(unknown)}. "
+            f"Valid: {', '.join(sorted(_COVERAGE_KEYS))}"
+        )
+    for key, value in section.items():
+        expected = _COVERAGE_KEYS[key]
+        if isinstance(value, bool) or not isinstance(value, expected):
+            raise ConfigError(
+                f"{where}: coverage.{key} must be {_describe(expected)}, got "
+                f"{type(value).__name__}"
+            )
+
+    dimensions = section.get("dimensions")
+    if not dimensions:
+        raise ConfigError(
+            f"{where}: [coverage] needs a 'dimensions' table. Coverage of an "
+            "unstated space is not a measurable quantity, so there is no "
+            "default and no inferred spec."
+        )
+    for name, values in dimensions.items():
+        if not isinstance(values, list) or not all(
+            isinstance(v, str) for v in values
+        ):
+            raise ConfigError(
+                f"{where}: coverage.dimensions.{name} must be a list of "
+                f"strings naming the levels that should be present"
+            )
 
 
 def _describe(expected: type | tuple[type, ...]) -> str:

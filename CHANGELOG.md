@@ -4,6 +4,86 @@ All notable changes to this project are documented here.
 Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/);
 versioning follows [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.17.0] — 2026-08-24
+
+### Added — coverage of a declared space
+
+The most-requested eval-tooling question is "does my eval cover what matters",
+and it is the easiest one to fake. Answering it needs a reference — a statement
+of what the eval is supposed to span — and there are three places that could
+come from:
+
+  * **Invent a taxonomy** ("reasoning, safety, tool use, long context"). Nothing
+    justifies those categories over any others, so the percentage is arbitrary.
+    That is the score this package refuses to produce.
+  * **Have an LLM generate one.** Reintroduces exactly the judge problem removed
+    in 0.7.0; the coverage figure would inherit its unmeasurability.
+  * **Require the user to supply it.** The reference is then theirs, the
+    arithmetic is a census, and the tool has added measurement rather than
+    opinion.
+
+`CoverageCheck` does the third and **refuses the other two**. `CoverageSpec`
+cannot be constructed without dimensions, and an axis with one level is refused
+because it cannot be under- or over-covered. There is no `coverage: 68%` that
+comes from nowhere.
+
+**What it reports.** Cell occupancy over a cross-tabulation you declare: which
+cells are EMPTY, which are too THIN to support a per-cell rate (with the same
+n-cases-to-n+1-distinct-accuracies argument the imbalance check makes), and each
+cell's share with a **Wilson interval** rather than a bare percentage. Given an
+optional reference distribution — production traffic shares, say — total
+variation distance plus per-cell over/under-representation.
+
+**The spec lives in `evallint.toml`,** under a new `[coverage]` table, because it
+is a declaration about your eval that should be reviewed like code. There is no
+command-line form: inventing one would encourage retyping the reference each run.
+
+```toml
+[coverage.dimensions]
+label = ["billing", "shipping", "returns", "account"]
+input_length = ["short", "medium"]
+
+[coverage.reference]
+"billing|short" = 0.20
+"shipping|short" = 0.30
+```
+
+Built-in axes: `label`, `input_length` (characters, not tokens — tokenisation is
+model-specific and importing a tokeniser would make a core check depend on a
+model), `expected_type`, `turns`, plus any `metadata` key. Unknown keys in
+`impossible` or `reference` are refused by name: a typo there would silently
+excuse a real gap.
+
+**The caveat is a FINDING, not a limitation.** Every run — including one with no
+gaps at all — emits an INFO saying occupancy was measured against the dimensions
+you declared, and that a dimension you did not declare is invisible. A coverage
+percentage is exactly the figure that gets quoted without its caveat.
+
+**Cases that do not fit are reported, never dropped.** A case whose label is
+outside the spec is counted as unplaceable and named, because silently excluding
+it would make occupancy a statement about a subset nobody was told about.
+
+Coverage joins the `dataset_statistics` section of the unified report, on the
+same precedent as leakage joining ground-truth: both are censuses of the file's
+composition, and the eleven requested sections have no separate slot. The
+grouping is stated in the section summary.
+
+Ten analyses now, five of which run from the file alone.
+
+### Added — benchmark arm
+`coverage_gaps`, with empty-cell and thin-cell detection scored separately
+because they are different claims. Label basis is **objective by construction**:
+the fixture decides how many cases land in each cell, so an empty cell is a fact
+rather than a judgement. **Precision and recall 1.000 for both, on both splits.**
+
+### Tests
+41 new. The ones that matter are the refusals — an empty spec, a one-level axis,
+a typo in `impossible`, a reference naming a cell the dimensions cannot produce —
+plus a test asserting that an eval covering every cell with no thin cells still
+emits exactly one finding: the caveat.
+
+894 tests, up from 853. mypy clean across 28 modules.
+
 ## [0.16.0] — 2026-08-22
 
 Production-readiness review. Three real defects fixed, two unverified claims
@@ -1089,6 +1169,7 @@ First release.
   `embedder=` callable instead.
 - Not an eval runner. It audits the dataset that eval runners consume.
 
+[0.17.0]: https://github.com/BhagyasriUddandam/evallint/releases/tag/v0.17.0
 [0.16.0]: https://github.com/BhagyasriUddandam/evallint/releases/tag/v0.16.0
 [0.15.0]: https://github.com/BhagyasriUddandam/evallint/releases/tag/v0.15.0
 [0.14.0]: https://github.com/BhagyasriUddandam/evallint/releases/tag/v0.14.0

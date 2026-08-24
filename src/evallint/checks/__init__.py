@@ -18,6 +18,18 @@ from .separation import (
     paired_difference,
     wilson_interval,
 )
+from .coverage import (
+    CoverageCheck,
+    CoverageSpec,
+    Dimension,
+    SpecError,
+    by_expected_type,
+    by_input_length,
+    by_label,
+    by_metadata,
+    by_turn_count,
+    spec_from_config,
+)
 from .duplicates import DuplicateCheck, Embedder, MissingEmbeddingsError
 from .imbalance import ImbalanceCheck
 from .agreement import (
@@ -69,6 +81,16 @@ __all__ = [
     "AmbiguityJudge",
     "CaseClass",
     "CompareFields",
+    "CoverageCheck",
+    "CoverageSpec",
+    "Dimension",
+    "SpecError",
+    "by_expected_type",
+    "by_input_length",
+    "by_label",
+    "by_metadata",
+    "by_turn_count",
+    "spec_from_config",
     "CaseSeparation",
     "Check",
     "CheckResult",

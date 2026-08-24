@@ -107,6 +107,7 @@ def _emit_audit(
         leakage=by_check.get("leakage"),
         ground_truth=by_check.get("ground_truth"),
         redundancy=by_check.get("redundancy") or by_check.get("duplicates"),
+        coverage=by_check.get("coverage"),
         source=str(path),
     )
 
@@ -371,6 +372,22 @@ def main(
         "duplicate_threshold=%s fail_on=%s",
         min_class_share, min_class_count, duplicate_threshold, fail_on,
     )
+    # Coverage runs only when a spec was declared. There is no default space
+    # and no inferred one -- see evallint.checks.coverage.
+    coverage_result = None
+    coverage_section = settings.get("coverage")
+    if isinstance(coverage_section, dict) and coverage_section:
+        from .checks import CoverageCheck, SpecError, spec_from_config
+
+        try:
+            coverage_result = CoverageCheck(
+                spec_from_config(coverage_section),
+                max_divergence=float(coverage_section.get("max_divergence", 0.10)),
+            ).run(eval_set)
+        except SpecError as exc:
+            click.echo(f"Error: [coverage] in your config: {exc}", err=True)
+            sys.exit(EXIT_INCOMPLETE)
+
     log.info("running imbalance and leakage on %d cases", len(eval_set))
     # Both are pure text analysis: no model, no network, no optional extra. They
     # always run, which is why they are the ones a new user actually tries.
@@ -384,7 +401,15 @@ def main(
         # with the discrimination scorer. The deterministic detectors run.
         GroundTruthCheck().run(eval_set),
     ]
+    if coverage_result is not None:
+        results.append(coverage_result)
     notes = [DISCRIMINATION_NOTE]
+    if coverage_result is None:
+        notes.append(
+            "coverage — not run: no [coverage] spec in your config. Coverage of "
+            "an unstated space is not measurable, so there is no default. See "
+            "docs/checks.md"
+        )
     # Always surface a non-identity mapping. A silently wrong column choice
     # produces a plausible report about the wrong data, so it must be visible
     # without needing -v.

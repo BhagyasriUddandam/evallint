@@ -410,6 +410,9 @@ class AuditReport:
 _CHECK_TIER = {
     # Counts and ratios over the file. Arithmetic, not inference.
     "imbalance": Tier.OBSERVED,
+    # Cell occupancy against a user-declared space. A census of THEIR space, so
+    # observed -- the choice of space is theirs and is reported as a finding.
+    "coverage": Tier.OBSERVED,
     # Substring and word-boundary matching against a chosen marker list.
     "leakage": Tier.HEURISTIC,
     # Pattern matching plus a chosen share threshold.
@@ -469,7 +472,7 @@ def _finding_tier(check: str, finding: Finding, default: Tier) -> Tier:
         # semantic level involves a threshold.
         if "identical" in message or "exact" in message:
             return Tier.OBSERVED
-    if check == "imbalance":
+    if check in ("imbalance", "coverage"):
         return Tier.OBSERVED
     return default
 
@@ -478,6 +481,8 @@ def _default_action(check: str) -> str:
     return {
         "imbalance": "Read the class counts before quoting a per-class "
         "accuracy; a class with few cases cannot produce a stable one.",
+        "coverage": "Fill the empty cells, mark the impossible ones in the "
+        "spec, or state which combinations your result does not cover.",
         "leakage": "Inspect the listed cases by hand. A confirmed leak means "
         "the case measures retrieval from the prompt rather than the ability "
         "you meant to test.",
@@ -500,6 +505,7 @@ def run_audit(
     eval_set: EvalSet,
     *,
     imbalance: CheckResult | None = None,
+    coverage: CheckResult | None = None,
     redundancy: CheckResult | None = None,
     leakage: CheckResult | None = None,
     ground_truth: CheckResult | None = None,
@@ -525,7 +531,7 @@ def run_audit(
 
     sections: list[AuditSection] = []
 
-    sections.append(_stats_section(eval_set, imbalance))
+    sections.append(_stats_section(eval_set, imbalance, coverage))
     sections.append(
         _from_check(
             "redundancy",
@@ -561,9 +567,17 @@ def run_audit(
 
 
 def _stats_section(
-    eval_set: EvalSet, imbalance: CheckResult | None
+    eval_set: EvalSet,
+    imbalance: CheckResult | None,
+    coverage: CheckResult | None = None,
 ) -> AuditSection:
-    """Dataset statistics: a census, so OBSERVED throughout."""
+    """Dataset statistics: a census, so OBSERVED throughout.
+
+    Class distribution and declared-space coverage share this section for the
+    same reason leakage shares the ground-truth one: both are censuses of the
+    file's composition, and the eleven requested sections have no separate slot.
+    The summary names both so the grouping is not left to be inferred.
+    """
     labelled = sum(1 for c in eval_set if c.label is not None)
     scoreable = sum(1 for c in eval_set if c.expected is not None)
     stats: dict[str, Any] = {
@@ -592,6 +606,11 @@ def _stats_section(
         findings = _adapt(imbalance, "dataset_statistics")
         limitations = imbalance.limitations
         summary = f"{summary}. {imbalance.summary}"
+    if coverage is not None:
+        stats["coverage"] = coverage.stats
+        findings = findings + _adapt(coverage, "dataset_statistics")
+        limitations = limitations + coverage.limitations
+        summary = f"{summary}. Coverage: {coverage.summary}"
     return AuditSection(
         key="dataset_statistics",
         title="Dataset statistics",

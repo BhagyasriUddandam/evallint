@@ -57,6 +57,7 @@ __all__ = [
     "Fixture",
     "Split",
     "ambiguity_fixture",
+    "coverage_fixture",
     "discrimination_fixture",
     "exact_duplicate_fixture",
     "imbalance_fixtures",
@@ -629,6 +630,81 @@ def discrimination_fixture(split: Split) -> DiscriminationFixture:
         scorer=scorer,
         models=models,
         expected_class=plan,
+        split=split,
+    )
+
+
+# --------------------------------------------------------------------------
+# 11. Coverage gaps — objective by construction
+# --------------------------------------------------------------------------
+
+
+@dataclass(frozen=True, slots=True)
+class CoverageFixture:
+    """An eval with a KNOWN set of empty and thin cells.
+
+    Objective by construction: the generator decides how many cases land in each
+    cell, so "this cell is empty" is a fact about the fixture rather than a
+    judgement. A disagreement is a detector bug.
+    """
+
+    eval_set: EvalSet
+    spec: Any
+    empty_cells: frozenset[str]
+    thin_cells: frozenset[str]
+    all_cells: frozenset[str]
+    split: Split
+
+
+def coverage_fixture(split: Split, *, min_cell: int = 5) -> CoverageFixture:
+    """Plant specific holes in a two-dimension space.
+
+    The occupancy plan is written out rather than generated, so the expected
+    empty and thin sets are read off the plan and cannot drift from it.
+    """
+    from evallint.checks.coverage import CoverageSpec, by_input_length, by_label
+
+    labels = ["alpha", "beta", "gamma", "delta"]
+    # cases per (label, band). Absent -> empty. Below min_cell -> thin.
+    plan = {
+        ("alpha", "short"): 8,
+        ("alpha", "medium"): 6,
+        ("beta", "short"): 2,      # thin
+        ("gamma", "medium"): 1,    # thin
+        # every other combination is EMPTY on purpose
+    }
+    pad = {"short": "x" * 40, "medium": "x" * 300, "long": "x" * 900}
+    pool = _POOL[split]["distinct"]
+
+    cases: list[EvalCase] = []
+    n = 0
+    for (label, band), count in plan.items():
+        for _ in range(count):
+            cases.append(
+                EvalCase(
+                    id=f"{label}_{band}_{n}",
+                    input=f"{pool[n % len(pool)]} {pad[band]}",
+                    expected=f"answer {n}",
+                    label=label,
+                )
+            )
+            n += 1
+
+    spec = CoverageSpec(
+        dimensions=(by_label(labels), by_input_length()), min_cell=min_cell
+    )
+    all_cells = frozenset(spec.cell_keys)
+    occupied = {f"{label}|{band}" for (label, band) in plan}
+    return CoverageFixture(
+        eval_set=EvalSet(cases=tuple(cases), source=f"coverage_{split}.jsonl"),
+        spec=spec,
+        empty_cells=frozenset(all_cells - occupied),
+        thin_cells=frozenset(
+            f"{label}|{band}"
+            for (label, band), count in plan.items()
+            if count < min_cell
+        ),
+        all_cells=all_cells,
         split=split,
     )
 

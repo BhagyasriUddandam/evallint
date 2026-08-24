@@ -17,7 +17,7 @@ import pytest
 
 import evallint
 
-#: Every name `from evallint import *` provides, as of 0.16.0.
+#: Every name `from evallint import *` provides, as of 0.17.0.
 PUBLIC_API = frozenset(
     {
         # data model
@@ -31,6 +31,7 @@ PUBLIC_API = frozenset(
         "DiscriminationCheck", "DuplicateCheck", "ImbalanceCheck",
         "LeakageCheck", "RedundancyCheck", "RedundancyLevel", "CompareFields",
         "GroundTruthCheck", "EvaluatorReliability", "JudgeObservation",
+        "CoverageCheck", "CoverageSpec",
         # analyses
         "RunOutcome", "analyse_reproducibility", "compare_models",
         "estimate_effective_size", "krippendorff_alpha", "mcnemar_exact_p",

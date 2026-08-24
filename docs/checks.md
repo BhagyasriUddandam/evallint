@@ -351,6 +351,113 @@ only one, which is what a genuinely held-out set looks like.
 
 ---
 
+## 5. Coverage of a declared space
+
+### What it measures
+Occupancy of a cross-tabulation you define. You declare dimensions and the levels
+that ought to be present; the check reports which cells are **empty**, which are
+too **thin** to support a per-cell rate, and — if you supply a reference
+distribution — how far your eval sits from it.
+
+### Why it matters
+"Does my eval cover what matters" is the most-wanted question in eval tooling.
+An 87% over an eval with no long-input cases is 87% on short inputs, and the
+number does not say so.
+
+### Methodology
+**Coverage is undefined without a reference, so the reference is required.** There
+are three places it could come from and two are disqualifying:
+
+- *Invent a taxonomy* ("reasoning, safety, tool use") — nothing justifies those
+  categories over any others, so the percentage is arbitrary. That is a score.
+- *Ask an LLM to generate one* — reintroduces the judge problem this package
+  removed; the coverage figure would inherit all of it.
+- **Require the user to supply it** — then the reference is yours, the arithmetic
+  is a census, and the tool adds measurement rather than opinion.
+
+`CoverageSpec(dimensions=(...))` cannot be constructed empty, and an axis with
+one level is refused because it cannot be under- or over-covered. Cells carry a
+**Wilson interval on their share**, not a bare percentage. Divergence from a
+reference is **total variation distance** — half the L1 gap, so it reads as "this
+share of the probability mass is in the wrong cells". Built-in axes: `label`,
+`input_length` (characters, not tokens — tokenisation is model-specific),
+`expected_type`, `turns`, plus any `metadata` key.
+
+Tier: **observed** for occupancy. Divergence is an estimate over a finite sample.
+
+### Assumptions
+- That your declared space is the right one. This is the load-bearing assumption
+  and the check says so on every run.
+- That an unmarked empty cell is a gap. Impossible combinations go in
+  `impossible` and stop being reported.
+- That equal weighting applies, as everywhere else.
+
+### Limitations
+- **The dimensions you did not think of are invisible.** Full coverage of a
+  two-axis spec says nothing about the axes that spec omits. Unknown-unknowns
+  are not solvable from the data — nothing in a file reveals what is absent from
+  the concept behind it.
+- `min_cell` and the divergence threshold are **conventions**, printed with the
+  findings that use them.
+- It says nothing about whether the cases *inside* a cell are any good. A
+  well-covered cell of leaky, ambiguous cases is still well covered.
+
+### Example
+
+`evallint.toml`:
+```toml
+[coverage]
+min_cell = 3
+
+[coverage.dimensions]
+label = ["billing", "shipping", "returns", "account"]
+input_length = ["short", "medium"]
+
+[coverage.reference]        # production traffic shares
+"billing|short"  = 0.20
+"shipping|short" = 0.30
+"returns|short"  = 0.25
+"account|short"  = 0.25
+```
+```
+coverage
+  3/8 declared cells occupied (38%) across 2 dimension(s); 2 too thin for a
+  per-cell rate; total variation distance from reference 0.467 — relative to the
+  spec you supplied
+
+  WARN  5 of 8 declared cells have no cases at all: account|medium, account|short,
+        billing|medium, returns|medium, shipping|medium. No claim about those
+        combinations is supported by this eval
+  WARN  2 cell(s) hold fewer than 3 cases — returns|short (1 case, 2 distinct
+        accuracies possible), shipping|short (2 cases, 3 distinct accuracies possible)
+  WARN  the eval's distribution sits 46.7% from the reference you supplied, above
+        the 10% threshold. An aggregate score over this eval is weighted
+        differently from the population the reference describes
+  INFO  occupancy is measured against the 2 dimension(s) you declared. A dimension
+        you did not declare is invisible to this check, so this figure cannot tell
+        you whether the space itself is the right one
+```
+That last INFO is emitted on **every** run, including a run with no gaps at all —
+a coverage percentage is exactly the figure that gets quoted without its caveat.
+
+### False positives
+**Measured: precision 1.000** for both empty-cell and thin-cell detection on the
+benchmark's held-out split. The label is *objective by construction* — the fixture
+decides how many cases land in each cell — so a false positive would be a
+detector bug rather than a labelling dispute.
+
+The realistic false positive is a **deliberate hole**: a combination that cannot
+exist, reported as a gap because it was not listed in `impossible`. That is
+expected behaviour, and marking it removes it from the denominator too.
+
+### False negatives
+**Measured: recall 1.000** on the same split for both classifications. The
+unmeasurable false negative is the one that matters: **a dimension you never
+declared.** No number here can surface it, which is why the caveat is a finding
+rather than only a limitation.
+
+---
+
 # Part 2 — Evaluation quality
 
 These need something the file cannot supply: model runs, judges, or repeated
@@ -359,7 +466,7 @@ not the same as passing.
 
 ---
 
-## 5. Model separation (discrimination)
+## 6. Model separation (discrimination)
 
 ### What it measures
 For each case, whether the models you are comparing produced *different*
@@ -445,7 +552,7 @@ correct for the comparison you ran and wrong as a statement about the case.
 
 ---
 
-## 6. Evaluator reliability
+## 7. Evaluator reliability
 
 ### What it measures
 Whether the *grader* is reproducible: inter-judge agreement, chance-corrected
@@ -518,7 +625,7 @@ itself because it is deterministic rather than because it is reasoning well.
 
 ---
 
-## 7. Statistical model comparison
+## 8. Statistical model comparison
 
 ### What it measures
 Whether an observed difference between two models is distinguishable from zero,
@@ -589,7 +696,7 @@ which is the distinction that matters.
 
 ---
 
-## 8. Redundancy-adjusted coverage
+## 9. Redundancy-adjusted coverage
 
 ### What it measures
 How many *distinct scenarios* an eval contains, reported as a bracket rather than
@@ -647,7 +754,7 @@ more conservative; under-clustering flatters the eval.
 
 ---
 
-## 9. Reproducibility
+## 10. Reproducibility
 
 ### What it measures
 Whether the same eval gives the same answer twice — and **which of three separate

@@ -37,9 +37,9 @@ here tells you a model is good, and nothing here tells you an eval is good.**
 
 ## What it measures
 
-Nine analyses. Four run from the file with no model, no network and no API key;
-five need something the file cannot supply, and report **NOT ASSESSED** when it
-is absent — which is not the same as passing.
+Ten analyses. **Five** run from the file with no model, no network and no API
+key; five need something the file cannot supply, and report **NOT ASSESSED** when
+it is absent — which is not the same as passing.
 
 ### Dataset quality — runs from the file
 
@@ -49,6 +49,7 @@ is absent — which is not the same as passing.
 | **Class distribution** | largest-to-smallest ratio, classes too small for a stable per-class accuracy | observed |
 | **Potential leakage** | seven deterministic detectors for an answer reachable from its own prompt | heuristic |
 | **Ground-truth ambiguity** | seven detectors for references that do not pin down one answer | heuristic |
+| **Coverage of a declared space** | empty and thin cells of a cross-tabulation *you* define, and divergence from a reference distribution | observed |
 
 ### Evaluation quality — needs model runs, judges, or repeated runs
 
@@ -836,8 +837,11 @@ full list.
   one model family share their blind spots, so correlated error is
   indistinguishable from reliability, and only a human-labelled sample separates
   them.
-- **Whether your eval covers what matters.** Nothing here knows what you failed
-  to test.
+- **Whether your eval covers what matters** in any absolute sense. It measures
+  coverage of a space *you declare* — a dimension you never thought of is
+  invisible, and no analysis of a file can reveal what is absent from the concept
+  behind it. That caveat is emitted as a finding on every coverage run, not
+  buried in the limitations.
 - **Whether a non-separating case is easy or your models are too similar.** The
   observation is identical either way.
 
@@ -881,8 +885,10 @@ cannot tell the user" is enforced by the type rather than left to discipline.
 - **A real-dataset benchmark arm.** The synthetic suite has never caught a bug
   that real datasets did not catch first, which is the largest gap in evallint's
   own evidence. See [benchmarks/README.md](benchmarks/README.md).
-- **Coverage of a capability space.** Currently unmeasurable from cases alone,
-  and named here rather than implemented on a guess.
+- **A capability taxonomy you do not have to write.** Coverage now measures a
+  space you declare; inferring the space itself would need either an invented
+  taxonomy or an LLM to generate one, and both were rejected. If there is a
+  defensible third way, that is the next thing to build.
 
 Deliberately not planned: a web UI, a database, a hosted service, an overall
 quality score, or becoming an eval runner.
@@ -891,7 +897,7 @@ quality score, or becoming an eval runner.
 ## Development
 
 ```bash
-uv run pytest    # 853 tests
+uv run pytest    # 894 tests
 ```
 
 Every check is tested both ways: it must **fire on known-bad input** and **stay quiet on
