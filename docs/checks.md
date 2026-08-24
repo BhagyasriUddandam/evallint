@@ -960,6 +960,7 @@ Full methodology, cost accounting and caveats:
 | [`audit-report.md`](audit-report.md) | The unified report: eleven sections, evidence tiers, three formats |
 | [`schema-v2.md`](schema-v2.md) | Chat, rubrics, tool calls, and the flattening rules |
 | [`methodology-discrimination.md`](methodology-discrimination.md) | The statistics behind model separation, derived |
-| [`findings-gsm8k.md`](findings-gsm8k.md) | A real measurement on a public benchmark |
+| [`gsm8k-writeup.md`](gsm8k-writeup.md) | **Start here** — the finding, written for a reader who has not seen this repo |
+| [`findings-gsm8k.md`](findings-gsm8k.md) | The same run, with the working notes |
 | [`architecture-v2.md`](architecture-v2.md) | Design across eight dimensions, including what was declined |
 | [`../benchmarks/README.md`](../benchmarks/README.md) | How evallint is measured, and by whom |

@@ -5,6 +5,9 @@
 Everyone tests their model. Almost nobody tests whether the *measurement* can
 support the conclusion they draw from it.
 
+**Start here:** [98 of 100 GSM8K problems can't tell Haiku 4.5 from Opus 5](docs/gsm8k-writeup.md)
+— the finding this tool exists to make findable, for $1.68.
+
 ## The problem
 
 An unreliable evaluation does not fail loudly — it returns a number, and the
